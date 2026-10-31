@@ -721,14 +721,35 @@ function autoDetectarSetor(descricao) {
   }
 }
 
+function interpretarDataValidade(dataStr) {
+  if (!dataStr) return null;
+  const valor = String(dataStr).trim();
+  let ano, mes, dia;
+  let partes = valor.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/);
+  if (partes) {
+    ano = Number(partes[1]); mes = Number(partes[2]); dia = Number(partes[3]);
+  } else {
+    partes = valor.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})$/);
+    if (!partes) return null;
+    dia = Number(partes[1]); mes = Number(partes[2]); ano = Number(partes[3]);
+  }
+  const data = new Date(ano, mes - 1, dia);
+  if (data.getFullYear() !== ano || data.getMonth() !== mes - 1 || data.getDate() !== dia) return null;
+  data.setHours(0,0,0,0);
+  return data;
+}
+
 function diasRestantes(dataStr) {
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const val = new Date(dataStr + "T00:00:00");
-  return Math.ceil((val - hoje) / 86400000);
+  const val = interpretarDataValidade(dataStr);
+  if (!val) return null;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  return Math.round((val.getTime() - hoje.getTime()) / 86400000);
 }
 
 function situacao(p) {
   const dias = diasRestantes(p.validade);
+  if (dias === null) return { texto:"Validade não reconhecida", classe:"warn", faixa:0 };
   if (dias <= 90) return { texto:"Alterar etiqueta · 30%", classe:"urgent", faixa:30 };
   if (dias <= 120) return { texto:"Alterar etiqueta · 15%", classe:"warn", faixa:15 };
   return { texto:"Acompanhamento", classe:"ok", faixa:0 };
