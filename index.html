@@ -475,7 +475,7 @@ function gravarImportacao(dados, origem, event) {
   if(event?.target)event.target.value="";
 }
 
-async async function carregarRelatorioLoja(event) {
+async function carregarRelatorioLoja(event) {
   const file=event.target.files?.[0];
   if(!file)return;
   try {
@@ -1339,16 +1339,15 @@ async function seedCollection(name, localItems, remoteDocs) {
     if (key && !merged.has(key)) merged.set(key, { ...item, id: item.id ?? key });
   });
   if (merged.size > remote.size) {
-    const batch = writeBatch(db);
-    let count=0;
-    for (const [key,item] of merged) {
-      if (!remote.has(key)) {
+    const pendentes = [...merged.entries()].filter(([key]) => !remote.has(key));
+    // Sincroniza TODO o catálogo em lotes seguros; não interrompe nos primeiros 450.
+    for (let inicio=0; inicio<pendentes.length; inicio+=400) {
+      const batch = writeBatch(db);
+      pendentes.slice(inicio,inicio+400).forEach(([key,item]) => {
         batch.set(doc(collection(db,name),key), item);
-        count++;
-        if (count===450) break;
-      }
+      });
+      await batch.commit();
     }
-    if (count) await batch.commit();
   }
   return [...merged.values()];
 }
