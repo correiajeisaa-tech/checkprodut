@@ -395,7 +395,7 @@ function carregarRelatorioLoja(event) {
       let headerIdx = 0;
       let colGtin = -1, colDesc = -1, colVal = -1;
 
-      const normalizarCabecalho = valor => String(valor || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+      const normalizarCabecalho = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
       for (let i = 0; i < Math.min(rows.length, 15); i++) {
         const headers = rows[i] || [];
         const nomes = headers.map(normalizarCabecalho);
@@ -790,7 +790,7 @@ function interpretarDataValidade(dataStr) {
 
   const valor = String(dataStr).trim();
   // Quando o Excel entrega o serial como texto, converte antes de analisar datas escritas.
-  if (/^\\d{5}(?:\\.0+)?$/.test(valor)) {
+  if (/^\d{5}(?:\.0+)?$/.test(valor)) {
     const serial = Number(valor);
     if (serial > 20000 && serial < 80000) {
       const excel = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
