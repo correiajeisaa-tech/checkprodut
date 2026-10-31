@@ -384,7 +384,7 @@ function carregarRelatorioLoja(event) {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: "" });
 
       if (!rows || rows.length === 0) {
         alert("A planilha está vazia!");
@@ -417,31 +417,20 @@ function carregarRelatorioLoja(event) {
 
       let count = 0;
       const novoCatalogo = [];
-
+      const novosAcompanhamentos = [];
       for (let i = headerIdx + 1; i < rows.length; i++) {
         const row = rows[i];
-        if (!row || row.length === 0) continue;
-
-        let gtin = String(row[colGtin] || "").trim();
-        let descricao = String(row[colDesc] || "").trim();
-        let validade = row[colVal] ? String(row[colVal]).trim() : "";
-
-        // Limpeza de datas do Excel caso venham em número serial
-        if (validade && !isNaN(validade) && Number(validade) > 30000) {
-          const dExcel = new Date((Number(validade) - (25567 + 2)) * 86400 * 1000);
-          validade = dExcel.toISOString().slice(0, 10);
-        } else if (validade.length >= 10) {
-          validade = validade.slice(0, 10);
-        }
-
-        if (gtin && gtin !== "GTIN" && gtin.length >= 4) {
-          novoCatalogo.push({
-            codigo: gtin,
-            descricao: descricao || "Produto sem descrição",
-            validadeOrigem: validade.includes("-") ? validade : ""
-          });
-          count++;
-        }
+        if (!row || !row.length) continue;
+        const gtin = String(row[colGtin] ?? "").trim().replace(/\\.0$/, "").replace(/\\s+/g, "");
+        const descricao = String(row[colDesc] ?? "").trim();
+        const dataValidade = interpretarDataValidade(row[colVal]);
+        const validade = dataValidade
+          ? [dataValidade.getFullYear(), String(dataValidade.getMonth()+1).padStart(2,"0"), String(dataValidade.getDate()).padStart(2,"0")].join("-")
+          : "";
+        if (!gtin || gtin.toLowerCase() === "gtin" || gtin.length < 4) continue;
+        novoCatalogo.push({ codigo: gtin, descricao: descricao || "Produto sem descrição", validadeOrigem: validade });
+        if (validade) novosAcompanhamentos.push({ barcode: gtin, descricao: descricao || "Produto sem descrição", validade });
+        count++;
       }
 
       if (count === 0) {
@@ -473,13 +462,40 @@ function carregarRelatorioLoja(event) {
         adicionados++;
       });
 
+      // Envia as linhas com validade para o painel de acompanhamento.
+      let acompanhamentosNovos = 0;
+      novosAcompanhamentos.forEach(item => {
+        const jaExiste = produtos.some(p =>
+          String(p.barcode || "").replace(/\\s+/g, "") === item.barcode &&
+          interpretarDataValidade(p.validade)?.getTime() === interpretarDataValidade(item.validade)?.getTime() &&
+          String(p.descricao || "").trim().toLowerCase() === item.descricao.trim().toLowerCase()
+        );
+        if (!jaExiste) {
+          produtos.push({
+            id: Date.now() + acompanhamentosNovos,
+            barcode: item.barcode,
+            descricao: item.descricao,
+            peso: "",
+            setor: "Outros",
+            quantidade: 1,
+            validade: item.validade,
+            especie: "Geral",
+            funcionario: "Importação do relatório",
+            etiquetaAtualizada: false,
+            origemImportacao: true
+          });
+          acompanhamentosNovos++;
+        }
+      });
+      if (acompanhamentosNovos) salvar();
+
       // Salva a soma do catálogo anterior com os registros novos.
       localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
       window.CheckProdutCloud?.saveCatalog(catalogoBase);
 
       atualizarContadorBanco();
       renderizarTabelaBanco();
-      alert(`🎉 Importação concluída!\n\nNovos registros adicionados: ${adicionados}\nRegistros já existentes ignorados: ${repetidos}\nTotal acumulado no banco: ${catalogoBase.length}\n\nOs arquivos anteriores foram mantidos.`);
+      alert(`🎉 Importação concluída!\n\nNovos registros adicionados: ${adicionados}\nRegistros já existentes ignorados: ${repetidos}\nTotal acumulado no banco: ${catalogoBase.length}\n\nItens enviados para controle de validade: ${acompanhamentosNovos}\\nLinhas com validade identificada: ${novosAcompanhamentos.length}.`);
 
       // Permite selecionar novamente o mesmo arquivo se necessário.
       event.target.value = "";
@@ -1341,8 +1357,11 @@ window.CheckProdutCloud = {
     const tamanhoLote = 400;
     for (let inicio = 0; inicio < rows.length; inicio += tamanhoLote) {
       const batch = writeBatch(db);
-      rows.slice(inicio, inicio + tamanhoLote).forEach(item => {
-        batch.set(doc(db, "checkprodut_catalogo", String(item.codigo)), item);
+      rows.slice(inicio, inicio + tamanhoLote).forEach((item, indice) => {
+        const codigo = String(item.codigo || "sem-codigo").replace(/[^a-zA-Z0-9_-]/g, "_");
+        const validade = String(item.validadeOrigem || "sem-validade").replace(/[^a-zA-Z0-9_-]/g, "_");
+        const chave = String(item.id || (codigo + "__" + validade + "__" + inicio + "_" + indice));
+        batch.set(doc(db, "checkprodut_catalogo", chave), { ...item, id: chave });
       });
       await batch.commit();
     }
