@@ -579,7 +579,7 @@ function descricaoAusente(valor) {
 async function completarDescricoesLote() {
   const btn = document.getElementById("btnCompletarDescricoes");
   const status = document.getElementById("statusCompletarDescricoes");
-  const pendentes = catalogoBase.filter(item => descricaoAusente(item.descricao) && /^\\d{8,14}$/.test(String(item.codigo || "").trim()));
+  const pendentes = catalogoBase.filter(item => descricaoAusente(item.descricao) && /^\d{8,14}$/.test(String(item.codigo || "").trim()));
   if (!pendentes.length) {
     status.textContent = "Não há produtos com descrição pendente e código válido.";
     return;
