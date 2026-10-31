@@ -173,6 +173,7 @@
         <div>
           <label for="descricao">Descrição do Produto</label>
           <input id="descricao" placeholder="Preenchido automaticamente ao bipar" required oninput="autoDetectarSetor(this.value)">
+          <small id="descricaoStatus" style="display:block;min-height:16px;margin-top:4px;color:var(--muted);font-size:10px;"></small>
         </div>
 
         <div>
@@ -488,19 +489,83 @@ function carregarRelatorioLoja(event) {
 }
 
 // BUSCA AUTOMÁTICA AO BIPAR
-function buscarProdutoPorCodigo(codigo) {
-  const ean = codigo.trim();
-  if (!ean) return;
+let timerBuscaInternet = null;
+let ultimaBuscaInternet = "";
+const cacheBuscaInternet = new Map();
 
-  const item = catalogoBase.find(c => c.codigo === ean || ean.includes(c.codigo) || c.codigo.includes(ean));
-  if (item) {
-    document.getElementById("descricao").value = item.descricao;
+function mostrarStatusDescricao(texto, erro=false) {
+  const el = document.getElementById("descricaoStatus");
+  if (!el) return;
+  el.textContent = texto;
+  el.style.color = erro ? "#b23b39" : "#66756e";
+}
+
+// Consulta bases públicas pelo código de barras. O resultado só é salvo
+// quando a base retorna um nome de produto utilizável.
+async function pesquisarDescricaoNaInternet(ean) {
+  if (cacheBuscaInternet.has(ean)) return cacheBuscaInternet.get(ean);
+  const fontes = [
+    "https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
+    "https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json"
+  ];
+  for (const url of fontes) {
+    try {
+      const resposta = await fetch(url, {headers: {"Accept": "application/json"}});
+      if (!resposta.ok) continue;
+      const dados = await resposta.json();
+      if (dados.status !== 1 || !dados.product) continue;
+      const p = dados.product;
+      const nome = String(p.product_name_pt || p.product_name || p.abbreviated_product_name || "").trim();
+      if (!nome || nome.length < 3) continue;
+      const detalhes = [p.brands, p.quantity].filter(Boolean).join(" ");
+      const descricao = [nome, detalhes].filter(Boolean).join(" - ").replace(/\\s+/g, " ").trim();
+      cacheBuscaInternet.set(ean, descricao);
+      return descricao;
+    } catch (erro) {
+      console.warn("Consulta de produto indisponível:", erro);
+    }
+  }
+  return "";
+}
+
+async function buscarProdutoPorCodigo(codigo) {
+  const ean = String(codigo || "").trim();
+  if (!ean) return;
+  const campoDescricao = document.getElementById("descricao");
+  const item = catalogoBase.find(c => String(c.codigo || "") === ean);
+  if (item && item.descricao && item.descricao !== "Produto sem descrição") {
+    campoDescricao.value = item.descricao;
     autoDetectarSetor(item.descricao);
-    
+    mostrarStatusDescricao("Descrição encontrada no banco da loja.");
     if (item.validadeOrigem && item.validadeOrigem.includes("-")) {
       document.getElementById("validade").value = item.validadeOrigem;
     }
+    return;
   }
+
+  if (!/^\\d{8,14}$/.test(ean)) return;
+  clearTimeout(timerBuscaInternet);
+  timerBuscaInternet = setTimeout(async () => {
+    if (document.getElementById("barcode").value.trim() !== ean || ultimaBuscaInternet === ean) return;
+    ultimaBuscaInternet = ean;
+    mostrarStatusDescricao("Não consta no banco. Pesquisando descrição na internet...");
+    const descricao = await pesquisarDescricaoNaInternet(ean);
+    if (document.getElementById("barcode").value.trim() !== ean) return;
+    if (!descricao) {
+      mostrarStatusDescricao("Não encontrei esse EAN nas bases públicas. Digite a descrição manualmente.", true);
+      return;
+    }
+    campoDescricao.value = descricao;
+    autoDetectarSetor(descricao);
+    mostrarStatusDescricao("Descrição encontrada na internet e salva no banco da loja.");
+    const registro = item || {codigo: ean, validadeOrigem: ""};
+    registro.descricao = descricao;
+    if (!item) catalogoBase.push(registro);
+    localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+    window.CheckProdutCloud?.saveCatalog(catalogoBase);
+    atualizarContadorBanco();
+    renderizarTabelaBanco();
+  }, 550);
 }
 
 // MODAL PARA VISUALIZAR O BANCO DE DADOS CARREGADO
