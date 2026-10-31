@@ -81,7 +81,6 @@
     .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; }
     .camera-box video { width:100%; height:100%; object-fit:cover; }
     .badge-auto { font-size: 9px; background: #e8f5e9; color: #2e7d32; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
-    .file-input-hidden { display:none; }
     @media(max-width:850px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
     @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid-template-columns:1fr;} }
   </style>
@@ -97,10 +96,10 @@
     </div>
   </div>
   <div>
-    <!-- BOTÃO DIRETO DE UPLOAD DA PLANILHA DO SISTEMA DA LOJA -->
-    <label class="btn-upload secondary">
+    <!-- BOTÃO CORRIGIDO COM LABEL NATIVO -->
+    <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
       📥 Carregar Relatório da Loja (.xlsx)
-      <input type="file" id="relatorioFile" class="file-input-hidden" accept=".xlsx, .xls, .csv" onchange="carregarRelatorioLoja(event)">
+      <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv" style="display:none;" onchange="carregarRelatorioLoja(event)">
     </label>
   </div>
 </header>
@@ -315,16 +314,14 @@ function carregarRelatorioLoja(event) {
       const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
       let count = 0;
-      catalogoBase = []; // Atualiza o catálogo base da loja
+      catalogoBase = [];
 
       rows.forEach(row => {
         if (!row || row.length < 5) return;
         
-        // No relatório oficial, a Coluna index 4 (GTIN) tem o código de barras e a Coluna index 3 (Descrição) tem o nome do produto
         let gtin = String(row[4] || row[2] || "").trim();
         let descricao = String(row[3] || "").trim();
 
-        // Limpa códigos de barras com sufixos se houver
         if (gtin && gtin !== "GTIN" && gtin.length >= 7) {
           catalogoBase.push({
             codigo: gtin,
@@ -352,13 +349,11 @@ function buscarProdutoPorCodigo(codigo) {
   const ean = codigo.trim();
   if (!ean) return;
 
-  // Busca no catálogo do relatório importado
   const item = catalogoBase.find(c => c.codigo === ean || c.codigoInterno === ean || ean.includes(c.codigo));
   if (item) {
     document.getElementById("descricao").value = item.descricao;
     autoDetectarSetor(item.descricao);
     
-    // Preenche a validade se constar no relatório original
     if (item.validadeOrigem && item.validadeOrigem.includes("-")) {
       document.getElementById("validade").value = item.validadeOrigem;
     }
