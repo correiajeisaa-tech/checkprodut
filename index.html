@@ -411,7 +411,7 @@ function carregarRelatorioLoja(event) {
             if (row.length >= 5 && row.some(v => /produto|descri/i.test(String(v))) ) {
               headerIdx=i; colGtin=4; colDesc=3;
               const hs=row.map(norm);
-              colVal=hs.findIndex(h => /valid|venc|^dt\\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h));
+              colVal=hs.findIndex(h => /valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h));
               break;
             }
           }
@@ -756,7 +756,7 @@ function interpretarDataValidade(dataStr) {
 
   const valor = String(dataStr).trim();
   // Alguns relatórios exportam a data como texto com horário ou com ano/mês/dia.
-  const textoDataHora = valor.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{2}|\\d{4})[ T].*$/);
+  const textoDataHora = valor.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})[ T].*$/);
   if (textoDataHora) return interpretarDataValidade(textoDataHora[1]+"/"+textoDataHora[2]+"/"+textoDataHora[3]);
   // Quando o Excel entrega o serial como texto, converte antes de analisar datas escritas.
   if (/^\d{5}(?:\.0+)?$/.test(valor)) {
