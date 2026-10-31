@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CheckProdut | Controle Inteligente de Validade</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
@@ -124,8 +125,8 @@
     <div id="cloudBar"><span id="cloudStatus">Conectando...</span><strong id="cloudUser"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
     <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
     <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
-      📥 Carregar Relatório da Loja (.xlsx)
-      <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv" style="display:none;" onchange="carregarRelatorioLoja(event)">
+      📥 Carregar Relatório da Loja (Excel, CSV ou PDF)
+      <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv, .pdf" style="display:none;" onchange="carregarRelatorioLoja(event)">
     </label>
   </div>
 </header>
@@ -373,108 +374,149 @@ function salvar() {
   atualizarListaFuncionarios();
 }
 
-// IMPORTAÇÃO ROBUSTA: percorre TODAS as abas e nunca presume a coluna de validade.
-function carregarRelatorioLoja(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: "array", cellDates: true });
-      let linhasLidas = 0, comCodigo = 0, comDescricao = 0, comValidade = 0;
-      let semCodigo = 0, semValidade = 0, cabecalhosNaoIdentificados = [];
-      const novosCatalogo = [], novosAcompanhamentos = [];
-      const norm = v => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9 ]/g, " ");
-      const codigoLimpo = v => String(v ?? "").trim().replace(/\.0$/, "").replace(/\s+/g, "").replace(/[^0-9]/g, "");
-      for (const nomeAba of workbook.SheetNames) {
-        const sheet = workbook.Sheets[nomeAba];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
-        if (!rows.length) continue;
-        let headerIdx = -1, colGtin = -1, colDesc = -1, colVal = -1;
-        // Mapeamento específico do relatório Bluesoft: GTIN, Descrição e Data de Validade.
-        // Também aceita cabeçalhos genéricos de outros relatórios.
-        const ehGtin = h => /gtin|ean/.test(h);
-        const ehCodigo = h => ehGtin(h) || /codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
-        const ehDescricao = h => /descricao|descr|nome.*produto|produto|^item$/.test(h);
-        const ehValidade = h => /valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
-        let melhorPontuacao = -1;
-        for (let i = 0; i < Math.min(rows.length, 40); i++) {
-          const hs = (rows[i] || []).map(norm);
-          const gi = hs.findIndex(ehCodigo);
-          const di = hs.findIndex(ehDescricao);
-          const vi = hs.findIndex(ehValidade);
-          // Prefere explicitamente GTIN a código interno e exige identificar a validade.
-          const pontuacao = (gi >= 0 ? (ehGtin(hs[gi]) ? 4 : 2) : 0) + (di >= 0 ? 2 : 0) + (vi >= 0 ? 4 : 0);
-          if (gi >= 0 && di >= 0 && vi >= 0 && pontuacao > melhorPontuacao) {
-            headerIdx=i; colGtin=gi; colDesc=di; colVal=vi; melhorPontuacao=pontuacao;
-          }
-        }
-        // Compatibilidade com o relatório antigo: código na coluna E e descrição na D.
-        if (headerIdx < 0) {
-          for (let i=0;i<Math.min(rows.length,25);i++) {
-            const row=rows[i]||[];
-            if (row.length >= 5 && row.some(v => /produto|descri/i.test(String(v))) ) {
-              headerIdx=i; colGtin=4; colDesc=3;
-              const hs=row.map(norm);
-              colVal=hs.findIndex(h => /valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h));
-              break;
-            }
-          }
-        }
-        if (headerIdx < 0 || colGtin < 0 || colDesc < 0) {
-          cabecalhosNaoIdentificados.push(nomeAba);
-          continue;
-        }
-        for (let i=headerIdx+1;i<rows.length;i++) {
-          const row=rows[i]||[];
-          if (!row.some(v => String(v ?? "").trim() !== "")) continue;
-          linhasLidas++;
-          const gtin=codigoLimpo(row[colGtin]);
-          const descricao=String(row[colDesc] ?? "").trim();
-          if (!gtin || gtin.length < 4) { semCodigo++; continue; }
-          comCodigo++;
-          if (descricao && !descricaoAusente(descricao)) comDescricao++;
-          const dataValidade = colVal >= 0 ? interpretarDataValidade(row[colVal]) : null;
-          const validade = dataValidade ? [dataValidade.getFullYear(),String(dataValidade.getMonth()+1).padStart(2,"0"),String(dataValidade.getDate()).padStart(2,"0")].join("-") : "";
-          const descFinal = descricao || "Produto sem descrição";
-          novosCatalogo.push({codigo:gtin,descricao:descFinal,validadeOrigem:validade});
-          if (validade) { comValidade++; novosAcompanhamentos.push({barcode:gtin,descricao:descFinal,validade}); }
-          else semValidade++;
-        }
+// IMPORTAÇÃO: Excel, CSV e PDF com texto selecionável.
+async function extrairLinhasPDF(file) {
+  if (!window.pdfjsLib) throw new Error("O leitor de PDF não carregou. Atualize a página e tente novamente.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  const linhas = [];
+  for (let pagina=1; pagina<=pdf.numPages; pagina++) {
+    const page = await pdf.getPage(pagina);
+    const content = await page.getTextContent();
+    const grupos = new Map();
+    for (const item of content.items) {
+      if (!item.str || !item.str.trim()) continue;
+      const y = Math.round(item.transform[5] / 2) * 2;
+      if (!grupos.has(y)) grupos.set(y, []);
+      grupos.get(y).push({x:item.transform[4], texto:item.str.trim()});
+    }
+    for (const [y,itens] of grupos) {
+      itens.sort((a,b)=>a.x-b.x);
+      linhas.push({pagina,y,itens,texto:itens.map(x=>x.texto).join(" ")});
+    }
+  }
+  return linhas;
+}
+
+async function importarPDF(file) {
+  const linhas = await extrairLinhasPDF(file);
+  const norm = v => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const cabecalho = linhas.find(l => /gtin|ean/i.test(norm(l.texto)) && /data.*valid|validade/i.test(norm(l.texto)));
+  if (!cabecalho) throw new Error("Não encontrei no PDF os cabeçalhos GTIN e Data de Validade. O arquivo precisa ser um PDF com texto selecionável, exportado do relatório de validade do Bluesoft.");
+  const header = cabecalho.itens;
+  const posGtin = header.find(x=>/gtin|ean/i.test(norm(x.texto)))?.x;
+  const posVal = header.find(x=>/valid/i.test(norm(x.texto)))?.x;
+  const posDesc = header.find(x=>/descri/i.test(norm(x.texto)))?.x;
+  if (posGtin == null || posVal == null) throw new Error("Não consegui localizar as colunas GTIN e Data de Validade no cabeçalho do PDF.");
+  const dados = [];
+  for (const linha of linhas) {
+    if (linha.pagina===cabecalho.pagina && linha.y>=cabecalho.y) continue;
+    const gtinItem = linha.itens.find(x=>x.x>=posGtin-3 && x.x<(posVal-3) && /^\d{8,14}$/.test(x.texto.replace(/\D/g,"")) && x.texto.replace(/\D/g,"").length>=8);
+    const dataItem = linha.itens.find(x=>x.x>=posVal-3 && /\b\d{2}\/\d{2}\/\d{4}\b/.test(x.texto));
+    if (!gtinItem || !dataItem) continue;
+    const codigo = gtinItem.texto.replace(/\D/g,"");
+    const validade = dataItem.texto.match(/\b\d{2}\/\d{2}\/\d{4}\b/)?.[0];
+    const data = interpretarDataValidade(validade);
+    if (!data) continue;
+    const descricaoItens = linha.itens.filter(x=>x.x>(posDesc ?? posGtin)-3 && x.x<posVal-3 && x!==gtinItem);
+    let descricao = descricaoItens.map(x=>x.texto).join(" ").trim();
+    if (!descricao) {
+      const idx = linha.itens.indexOf(gtinItem);
+      descricao = linha.itens.slice(idx+1).filter(x=>x.x<posVal-3).map(x=>x.texto).join(" ").trim();
+    }
+    dados.push({codigo,descricao:descricao||"Produto sem descrição",validade:[data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-")});
+  }
+  if (!dados.length) throw new Error("O PDF foi aberto, mas não encontrei linhas com GTIN e Data de Validade na mesma linha da tabela. Se for um PDF digitalizado como imagem, será necessário exportar em Excel ou usar um PDF com texto selecionável.");
+  return dados;
+}
+
+function gravarImportacao(dados, origem, event) {
+  let comCodigo=0, comDescricao=0, comValidade=0, semValidade=0;
+  const novosCatalogo=[], novosAcompanhamentos=[];
+  const codigoLimpo=v=>String(v??"").trim().replace(/\.0$/,"").replace(/\s+/g,"").replace(/[^0-9]/g,"");
+  for (const item of dados) {
+    const gtin=codigoLimpo(item.codigo);
+    const descricao=String(item.descricao??"").trim();
+    if (!gtin || gtin.length<8) continue;
+    comCodigo++;
+    if (descricao && !descricaoAusente(descricao)) comDescricao++;
+    const dataValidade=interpretarDataValidade(item.validade);
+    const validade=dataValidade?[dataValidade.getFullYear(),String(dataValidade.getMonth()+1).padStart(2,"0"),String(dataValidade.getDate()).padStart(2,"0")].join("-"):"";
+    const descFinal=descricao||"Produto sem descrição";
+    novosCatalogo.push({codigo:gtin,descricao:descFinal,validadeOrigem:validade});
+    if(validade){comValidade++;novosAcompanhamentos.push({barcode:gtin,descricao:descFinal,validade});}
+    else semValidade++;
+  }
+  if(!comCodigo) throw new Error("Não encontrei códigos GTIN válidos no arquivo.");
+  const chaveCatalogo=x=>[String(x.codigo||"").trim(),String(x.descricao||"").trim().toLowerCase(),String(x.validadeOrigem||"").trim()].join("|");
+  const existentes=new Set(catalogoBase.map(chaveCatalogo));
+  let adicionados=0,repetidos=0,descricoesAtualizadas=0;
+  for(const item of novosCatalogo){
+    const key=chaveCatalogo(item);
+    if(existentes.has(key)){repetidos++;continue;}
+    const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
+    if(pendente){pendente.descricao=item.descricao;descricoesAtualizadas++;existentes.add(key);continue;}
+    catalogoBase.push(item);existentes.add(key);adicionados++;
+  }
+  let acompanhamentosNovos=0;
+  const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
+  for(const item of novosAcompanhamentos){
+    const key=[item.barcode,interpretarDataValidade(item.validade)?.getTime()||"",item.descricao.trim().toLowerCase()].join("|");
+    if(chavesProdutos.has(key))continue;
+    produtos.push({id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:1,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true});
+    chavesProdutos.add(key);acompanhamentosNovos++;
+  }
+  localStorage.setItem(CHAVE_BASE_CATALOGO,JSON.stringify(catalogoBase));
+  window.CheckProdutCloud?.saveCatalog(catalogoBase);
+  if(acompanhamentosNovos) salvar();
+  else { renderizar(); }
+  atualizarContadorBanco();renderizarTabelaBanco();atualizarListaFuncionarios();
+  alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
+  if(event?.target)event.target.value="";
+}
+
+async function carregarRelatorioLoja(event) {
+  const file=event.target.files?.[0];
+  if(!file)return;
+  try {
+    const ext=file.name.split(".").pop().toLowerCase();
+    if(ext==="pdf"){
+      const dados=await importarPDF(file);
+      gravarImportacao(dados,"PDF",event);
+      return;
+    }
+    if(!["xlsx","xls","csv"].includes(ext))throw new Error("Formato não suportado. Use Excel, CSV ou PDF.");
+    const workbook=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array",cellDates:true});
+    const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
+    const ehGtin=h=>/gtin|ean/.test(h);
+    const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
+    const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
+    const ehValidade=h=>/valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
+    const dados=[];
+    for(const nomeAba of workbook.SheetNames){
+      const rows=XLSX.utils.sheet_to_json(workbook.Sheets[nomeAba],{header:1,raw:true,defval:""});
+      if(!rows.length)continue;
+      let headerIdx=-1,colGtin=-1,colDesc=-1,colVal=-1,score=-1;
+      for(let i=0;i<Math.min(rows.length,40);i++){
+        const hs=(rows[i]||[]).map(norm);
+        const gi=hs.findIndex(ehCodigo),di=hs.findIndex(ehDescricao),vi=hs.findIndex(ehValidade);
+        const sc=(gi>=0?(ehGtin(hs[gi])?4:2):0)+(di>=0?2:0)+(vi>=0?4:0);
+        if(gi>=0&&di>=0&&vi>=0&&sc>score){headerIdx=i;colGtin=gi;colDesc=di;colVal=vi;score=sc;}
       }
-      if (!comCodigo) {
-        alert("Não encontrei linhas com código de barras. Abas analisadas: "+workbook.SheetNames.join(", ")+". Abas sem cabeçalho reconhecido: "+cabecalhosNaoIdentificados.join(", "));
-        event.target.value=""; return;
+      if(headerIdx<0)continue;
+      for(let i=headerIdx+1;i<rows.length;i++){
+        const row=rows[i]||[];
+        const gtin=String(row[colGtin]??"").trim().replace(/\.0$/,"").replace(/\D/g,"");
+        if(!gtin||gtin.length<8)continue;
+        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
       }
-      const chaveCatalogo = x => [String(x.codigo||"").trim(),String(x.descricao||"").trim().toLowerCase(),String(x.validadeOrigem||"").trim()].join("|");
-      const existentes = new Set(catalogoBase.map(chaveCatalogo));
-      let adicionados=0,repetidos=0,descricoesAtualizadas=0;
-      for (const item of novosCatalogo) {
-        const key=chaveCatalogo(item);
-        if (existentes.has(key)) { repetidos++; continue; }
-        // Se já existe a mesma combinação código+validade sem descrição, substitui pela descrição encontrada.
-        const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo && String(x.validadeOrigem||"")===item.validadeOrigem && descricaoAusente(x.descricao||"") && !descricaoAusente(item.descricao));
-        if (pendente) { pendente.descricao=item.descricao; descricoesAtualizadas++; existentes.add(key); continue; }
-        catalogoBase.push(item); existentes.add(key); adicionados++;
-      }
-      let acompanhamentosNovos=0;
-      const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
-      for (const item of novosAcompanhamentos) {
-        const key=[item.barcode,interpretarDataValidade(item.validade)?.getTime()||"",item.descricao.trim().toLowerCase()].join("|");
-        if(chavesProdutos.has(key)) continue;
-        produtos.push({id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:1,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true});
-        chavesProdutos.add(key); acompanhamentosNovos++;
-      }
-      localStorage.setItem(CHAVE_BASE_CATALOGO,JSON.stringify(catalogoBase));
-      window.CheckProdutCloud?.saveCatalog(catalogoBase);
-      if(acompanhamentosNovos || produtos.length) salvar();
-      atualizarContadorBanco();
-      renderizarTabelaBanco();
-      alert("Importação concluída (todas as abas)\n\nAbas analisadas: "+workbook.SheetNames.length+"\nLinhas lidas: "+linhasLidas+"\nLinhas com código: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nCom validade reconhecida: "+comValidade+"\nNovos itens em 15%/30%: "+acompanhamentosNovos+"\nSem validade reconhecida: "+semValidade+"\nSem código: "+semCodigo+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length+(cabecalhosNaoIdentificados.length?"\nAbas ignoradas por cabeçalho: "+cabecalhosNaoIdentificados.join(", "):""));
-      event.target.value="";
-    } catch(err) { console.error(err); alert("Erro ao importar planilha: "+(err?.message||err)); }
-  };
-  reader.readAsArrayBuffer(file);
+    }
+    gravarImportacao(dados,"Excel/CSV",event);
+  }catch(err){
+    console.error("Erro ao importar relatório:",err);
+    alert("Não foi possível importar o arquivo.\n\n"+(err?.message||err));
+    event.target.value="";
+  }
 }
 
 // BUSCA AUTOMÁTICA AO BIPAR
