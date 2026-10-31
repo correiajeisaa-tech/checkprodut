@@ -1239,9 +1239,16 @@ window.CheckProdutCloud = {
   },
   saveCatalog: async rows => {
     if(!ready) return;
-    const batch=writeBatch(db);
-    rows.forEach(item=>batch.set(doc(db,"checkprodut_catalogo",String(item.codigo)),item));
-    await batch.commit();
+    // Firestore permite no máximo 500 operações por lote. Divide catálogos
+    // grandes em blocos menores para que a atualização não falhe.
+    const tamanhoLote = 400;
+    for (let inicio = 0; inicio < rows.length; inicio += tamanhoLote) {
+      const batch = writeBatch(db);
+      rows.slice(inicio, inicio + tamanhoLote).forEach(item => {
+        batch.set(doc(db, "checkprodut_catalogo", String(item.codigo)), item);
+      });
+      await batch.commit();
+    }
   },
   deleteProduct: async id => { if(ready && role==="MASTER") await deleteDoc(doc(db,"checkprodut_produtos",String(id))); },
   clearCatalog: async () => {
