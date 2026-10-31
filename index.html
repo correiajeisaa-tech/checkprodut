@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CheckProdut | Controle Inteligente de Validade</title>
-  <!-- Tesseract OCR para leitura de texto em imagem -->
+  <!-- SheetJS para ler arquivos Excel (.xlsx) diretamente -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Tesseract OCR para leitura de imagem -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <!-- HTML5-QRCode para leitura de código de barras -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -23,7 +25,7 @@
       --blue:#2b6cb0;
     }
     * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color:var(--text); }
+    body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, sans-serif; color:var(--text); }
     header { background:var(--green); color:white; padding:16px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
     .brand { display:flex; align-items:center; gap:12px; }
     .logo { width:42px; height:42px; background:var(--lime); color:var(--green); border-radius:10px; display:grid; place-items:center; font-size:22px; font-weight:900; }
@@ -67,7 +69,6 @@
     table { width:100%; border-collapse:collapse; min-width:820px; }
     th { text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; padding:10px 8px; border-bottom:2px solid var(--border); font-weight:700; }
     td { padding:11px 8px; border-bottom:1px solid var(--border); font-size:12px; vertical-align:middle; }
-    tr:last-child td { border-bottom:0; }
     .tag { display:inline-block; padding:4px 8px; border-radius:15px; font-size:10px; font-weight:700; }
     .tag.ok { background:#e7f3e9; color:#267044; }
     .tag.warn { background:#fff1dc; color:#a66b13; }
@@ -100,7 +101,7 @@
     </div>
   </div>
   <div>
-    <button type="button" class="secondary" onclick="abrirModalImportacao()">📥 Importar Planilha CSV</button>
+    <button type="button" class="secondary" onclick="abrirModalImportacao()">📥 Importar Relatório (.xlsx / .csv)</button>
   </div>
 </header>
 
@@ -108,7 +109,7 @@
   <div class="welcome">
     <div>
       <h2>Painel de Validade e Estoque</h2>
-      <div class="subtitle">Cadastre produtos, monitore trocas de etiquetas e consulte setores.</div>
+      <div class="subtitle">Cadastre produtos bipando o código e monitore trocas de etiquetas.</div>
     </div>
     <div style="display:flex; gap:8px;">
       <button type="button" class="outline" onclick="carregarDadosExemplo()">⚡ Dados de Teste</button>
@@ -128,7 +129,7 @@
     <div class="panel-head">
       <div>
         <h3 id="formTitle">Cadastrar Produto</h3>
-        <span class="subtitle">Bipe o código ou preencha os dados</span>
+        <span class="subtitle">Bipe o código de barras para preencher a descrição automaticamente</span>
       </div>
       <button type="button" id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar Edição</button>
     </div>
@@ -137,7 +138,7 @@
       <input type="hidden" id="editId">
       <div class="form-grid">
         <div>
-          <label for="barcode">Código de Barras (EAN)</label>
+          <label for="barcode">Código de Barras (GTIN / EAN)</label>
           <div class="input-with-btn">
             <input id="barcode" placeholder="Bipe ou digite o EAN" required oninput="buscarProdutoPorCodigo(this.value)">
             <button type="button" class="secondary icon-btn" title="Ler Código com Câmera" onclick="abrirScannerBarcode()">📷</button>
@@ -146,7 +147,7 @@
         
         <div>
           <label for="descricao">Descrição do Produto</label>
-          <input id="descricao" placeholder="Nome do produto" required oninput="autoDetectarSetor(this.value)">
+          <input id="descricao" placeholder="Preenchido automaticamente pelo código" required oninput="autoDetectarSetor(this.value)">
         </div>
 
         <div>
@@ -259,14 +260,15 @@
 <div class="modal" id="modalImportar">
   <div class="modal-content">
     <div class="modal-head">
-      <h4>Importar Planilha (CSV)</h4>
+      <h4>Importar Relatório de Produtos (.xlsx / .csv)</h4>
       <button type="button" class="outline icon-btn" onclick="fecharModal('modalImportar')">✕</button>
     </div>
-    <p style="font-size:12px; color:var(--muted);">Selecione o arquivo CSV contendo a lista de produtos (codigo;descricao;peso;setor):</p>
-    <input type="file" id="csvFile" accept=".csv" style="margin-bottom:15px;">
+    <p style="font-size:12px; color:var(--muted);">Selecione o arquivo Excel do relatório da loja (ex: <strong>Relatorio (38).xlsx</strong>). O sistema reconhecerá automaticamente a descrição e o código de barras.</p>
+    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" style="margin-bottom:15px;">
+    <div id="importStatus" style="font-size:12px; font-weight:bold; color:var(--green); margin-bottom:10px;"></div>
     <div class="form-actions">
       <button type="button" class="secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
-      <button type="button" class="primary" onclick="processarCSV()">Importar Planilha</button>
+      <button type="button" class="primary" onclick="processarArquivoRelatorio()">Importar Relatório</button>
     </div>
   </div>
 </div>
@@ -302,8 +304,8 @@
 </div>
 
 <script>
-const CHAVE_PRODUTOS = "checkprodut_produtos_v5";
-const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v5";
+const CHAVE_PRODUTOS = "checkprodut_produtos_v6";
+const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v6";
 
 let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
@@ -363,23 +365,15 @@ function autoDetectarSetor(descricao) {
   }
 }
 
-// BUSCA AUTOMÁTICA POR CÓDIGO EAN
+// BUSCA AUTOMÁTICA POR CÓDIGO EAN / GTIN
 function buscarProdutoPorCodigo(codigo) {
   const ean = codigo.trim();
   if(!ean) return;
 
-  const existente = produtos.find(p => p.barcode === ean);
-  if (existente) {
-    document.getElementById("descricao").value = existente.descricao;
-    document.getElementById("peso").value = existente.peso || "";
-    document.getElementById("setor").value = existente.setor;
-    return;
-  }
-
+  // Procura no catálogo importado do relatório
   const itemCatalogo = catalogoBase.find(c => c.codigo === ean);
   if (itemCatalogo) {
     document.getElementById("descricao").value = itemCatalogo.descricao;
-    document.getElementById("peso").value = itemCatalogo.peso || "";
     document.getElementById("setor").value = itemCatalogo.setor || "Outros";
     autoDetectarSetor(itemCatalogo.descricao);
   }
@@ -552,7 +546,103 @@ function escapar(v) {
   }[c]));
 }
 
-// SUA FUNÇÃO ASYNC ABRIR MODAL OCR (CÂMERA) INTEGRADA
+// PROCESSAR O RELATÓRIO EXCEL DA LOJA (EX: Relatorio (38).xlsx)
+function abrirModalImportacao() {
+  document.getElementById("modalImportar").style.display = "flex";
+  document.getElementById("importStatus").textContent = "";
+}
+
+function fecharModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+function processarArquivoRelatorio() {
+  const fileInput = document.getElementById("excelFile");
+  const statusDiv = document.getElementById("importStatus");
+  if (!fileInput.files.length) {
+    alert("Selecione um arquivo .xlsx ou .csv.");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  statusDiv.textContent = "Lendo arquivo do relatório...";
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Converte para JSON com linhas brutas para varredura inteligente
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      let count = 0;
+      catalogoBase = []; // Limpa e atualiza
+
+      // Varre as linhas procurando onde começa a tabela do relatório
+      rows.forEach((row) => {
+        if (!row || row.length < 4) return;
+        
+        // No relatório exportado, o código de barras (GTIN) costuma estar na 4ª ou 5ª coluna e a descrição na 3ª
+        // Vamos verificar células que parecem códigos de barras (números grandes) e descrições de texto
+        for (let i = 0; i < row.length; i++) {
+          let val = String(row[i] || "").trim();
+          // GTIN / Código de barras geralmente tem entre 8 e 14 dígitos numéricos
+          if (/^\d{8,14}$/.test(val)) {
+            // Procura uma coluna adjacente que seja texto descritivo
+            let descricao = "";
+            for (let j = 0; j < row.length; j++) {
+              let textCandidate = String(row[j] || "").trim();
+              if (textCandidate.length > 3 && !/^\d+$/.test(textCandidate)) {
+                descricao = textCandidate;
+                break;
+              }
+            }
+
+            if (descricao) {
+              catalogoBase.push({
+                codigo: val,
+                descricao: descricao,
+                setor: "Outros"
+              });
+              count++;
+              break;
+            }
+          }
+        }
+      });
+
+      if (count === 0) {
+        // Fallback: se não encontrou pelo formato de GTIN, tenta pegar colunas genéricas (Ex: Coluna 2 = Descrição, Coluna 3 = GTIN)
+        rows.forEach((row, idx) => {
+          if (idx < 26 || !row || row.length < 4) return; // Pula cabeçalhos institucionais
+          let desc = String(row[3] || row[2] || "").trim();
+          let cod = String(row[4] || row[3] || "").trim();
+          if (cod && desc && cod.length > 3) {
+            catalogoBase.push({ codigo: cod, descricao: desc, setor: "Outros" });
+            count++;
+          }
+        });
+      }
+
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      statusDiv.textContent = `Sucesso! ${count} produtos carregados do relatório da loja.`;
+      setTimeout(() => {
+        fecharModal("modalImportar");
+        alert(`${count} produtos importados com sucesso! Agora ao bipar o código, a descrição preencherá sozinha.`);
+      }, 1000);
+
+    } catch (err) {
+      console.error(err);
+      statusDiv.textContent = "Erro ao processar planilha. Verifique o formato.";
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// FUNÇÃO ASYNC ABRIR MODAL OCR (CÂMERA)
 async function abrirModalOCR() {
     const modal = document.getElementById("modalOCR");
     const video = document.getElementById("videoOCR");
@@ -587,18 +677,7 @@ async function abrirModalOCR() {
     } catch (erro) {
         console.error("Erro ao abrir câmera:", erro);
         status.textContent = "Não foi possível abrir a câmera.";
-
-        let mensagem = "Verifique se a câmera está conectada e se o navegador tem permissão para utilizá-la.";
-
-        if (erro.name === "NotAllowedError") {
-            mensagem = "Acesso à câmera negado. Permita o uso da câmera nas configurações do navegador.";
-        } else if (erro.name === "NotFoundError") {
-            mensagem = "Nenhuma câmera foi encontrada neste dispositivo.";
-        } else if (erro.name === "NotReadableError") {
-            mensagem = "A câmera pode estar sendo utilizada por outro aplicativo.";
-        }
-
-        alert(mensagem);
+        alert("Verifique as permissões de câmera do navegador.");
     }
 }
 
@@ -621,7 +700,6 @@ function capturarEProcessarOCR() {
 
   Tesseract.recognize(canvas, 'por', { logger: m => console.log(m) })
     .then(({ data: { text } }) => {
-      console.log("Texto lido:", text);
       const dataExtraida = converterTextoParaData(text);
       if (dataExtraida) {
         document.getElementById("validade").value = dataExtraida;
@@ -709,49 +787,6 @@ function fecharScannerBarcode() {
   fecharModal("modalScanner");
 }
 
-// IMPORTAÇÃO E EXPORTAÇÃO CSV
-function abrirModalImportacao() {
-  document.getElementById("modalImportar").style.display = "flex";
-}
-
-function fecharModal(id) {
-  document.getElementById(id).style.display = "none";
-}
-
-function processarCSV() {
-  const fileInput = document.getElementById("csvFile");
-  if (!fileInput.files.length) {
-    alert("Selecione um arquivo CSV.");
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const linhas = e.target.result.split("\n");
-    let adicionados = 0;
-
-    linhas.forEach((linha, index) => {
-      if (index === 0 || !linha.trim()) return;
-      const cols = linha.split(";").map(c => c.replace(/"/g, '').trim());
-
-      if (cols.length >= 2) {
-        catalogoBase.push({
-          codigo: cols[0],
-          descricao: cols[1],
-          peso: cols[2] || "",
-          setor: cols[3] || "Outros"
-        });
-        adicionados++;
-      }
-    });
-
-    localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
-    alert(`${adicionados} produtos importados para o banco de consulta!`);
-    fecharModal("modalImportar");
-  };
-  reader.readAsText(fileInput.files[0]);
-}
-
 function exportarCSV() {
   if (!produtos.length) {
     alert("Não existem produtos para exportar.");
@@ -789,13 +824,13 @@ function carregarDadosExemplo() {
   const d90 = new Date(hoje.getTime() + 60*86400000).toISOString().slice(0,10);
   produtos.push({
     id: Date.now(),
-    barcode: "7891008123456",
-    descricao: "Ração Premier Raças Pequenas",
-    peso: "15 kg",
-    setor: "Rações Dry",
-    quantidade: 4,
+    barcode: "7898348033599",
+    descricao: "ALIMENTO JABUTI MIX ZOOTEKNA 60GR",
+    peso: "60g",
+    setor: "Outros",
+    quantidade: 2,
     validade: d90,
-    especie: "Cachorro",
+    especie: "Geral",
     funcionario: "Jeisa",
     etiquetaAtualizada: false
   });
