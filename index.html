@@ -104,7 +104,8 @@
     <input id="authEmail" type="email" autocomplete="username" required placeholder="seu e-mail">
     <label for="authPassword">Senha</label>
     <input id="authPassword" type="password" autocomplete="current-password" required placeholder="Sua senha">
-    <button class="primary" type="submit" id="authSubmit">Entrar</button>
+    <button class="primary" type="submit" id="authSubmit">Entrar com e-mail e senha</button>
+    <button class="secondary" type="button" id="googleSignIn" style="margin-top:8px;">Continuar com Google</button>
     <div id="authMessage" role="status"></div>
     <p style="font-size:11px;margin-bottom:0;">Acesso restrito à equipe autorizada.</p>
   </form>
@@ -1016,7 +1017,7 @@ atualizarListaFuncionarios();
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDocs, writeBatch, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1108,6 +1109,18 @@ window.CheckProdutCloud = {
   },
   logout: async () => { if(stopProducts)stopProducts(); if(stopCatalog)stopCatalog(); ready=false; await signOut(auth); }
 };
+document.getElementById("googleSignIn").addEventListener("click",async()=>{
+  const btn=document.getElementById("googleSignIn");
+  btn.disabled=true; btn.textContent="Abrindo Google...";
+  try {
+    const provider=new GoogleAuthProvider();
+    provider.setCustomParameters({prompt:"select_account"});
+    await signInWithPopup(auth,provider);
+  } catch(err) {
+    console.error("Login Google CheckProdut:",err);
+    setMessage(err.code==="auth/popup-closed-by-user"?"A janela de login foi fechada. Tente novamente.":err.message);
+  } finally { btn.disabled=false; btn.textContent="Continuar com Google"; }
+});
 document.getElementById("authForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const btn=document.getElementById("authSubmit"); btn.disabled=true; btn.textContent="Entrando...";
