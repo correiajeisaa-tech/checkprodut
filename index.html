@@ -80,11 +80,36 @@
     .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; }
     .camera-box video { width:100%; height:100%; object-fit:cover; }
     .badge-auto { font-size: 9px; background: #e8f5e9; color: #2e7d32; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+
+    #authGate { position:fixed; inset:0; z-index:5000; background:rgba(15,35,27,.96); display:flex; align-items:center; justify-content:center; padding:18px; }
+    #authGate .auth-card { width:100%; max-width:390px; background:white; padding:26px; border-radius:16px; box-shadow:0 18px 60px #0005; }
+    #authGate h2 { margin:0 0 8px; } #authGate p { color:var(--muted); font-size:13px; line-height:1.5; }
+    #authGate input { margin:6px 0 12px; } #authGate button { width:100%; justify-content:center; }
+    #authMessage { min-height:20px; color:var(--red); font-size:12px; margin:8px 0; }
+    #cloudBar { display:flex; align-items:center; gap:10px; color:#eaf2ed; font-size:12px; flex-wrap:wrap; }
+    #cloudBar button { padding:7px 10px; }
+
     @media(max-width:850px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
     @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
+
+<div id="authGate">
+  <form class="auth-card" id="authForm">
+    <div class="logo" style="margin-bottom:16px;">C</div>
+    <h2>Acesso ao CheckProdut</h2>
+    <p>Entre com seu e-mail corporativo autorizado para acessar os dados compartilhados da loja.</p>
+    <label for="authEmail">E-mail</label>
+    <input id="authEmail" type="email" autocomplete="username" required placeholder="seu e-mail">
+    <label for="authPassword">Senha</label>
+    <input id="authPassword" type="password" autocomplete="current-password" required placeholder="Sua senha">
+    <button class="primary" type="submit" id="authSubmit">Entrar</button>
+    <div id="authMessage" role="status"></div>
+    <p style="font-size:11px;margin-bottom:0;">Acesso restrito à equipe autorizada.</p>
+  </form>
+</div>
+
 
 <header>
   <div class="brand">
@@ -94,7 +119,8 @@
       <small>CONTROLE INTELIGENTE DE VALIDADE · PETCAMP</small>
     </div>
   </div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <div id="cloudBar"><span id="cloudStatus">Conectando...</span><strong id="cloudUser"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
     <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
     <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
       📥 Carregar Relatório da Loja (.xlsx)
@@ -260,7 +286,7 @@
     <div class="modal-head">
       <h4>Banco de Dados Carregado (<span id="totalBancoCount">0</span> itens)</h4>
       <div style="display:flex; gap:6px;">
-        <button type="button" class="danger" onclick="limparBancoDados()">🗑️ Limpar Banco</button>
+        <button type="button" class="danger master-only" onclick="limparBancoDados()">🗑️ Limpar Banco</button>
         <button type="button" class="outline icon-btn" onclick="fecharModalBanco()">✕</button>
       </div>
     </div>
@@ -326,6 +352,7 @@ let processandoOCR = false;
 
 function salvar() {
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
+  window.CheckProdutCloud?.saveProducts(produtos);
   renderizar();
   atualizarListaFuncionarios();
 }
@@ -432,6 +459,7 @@ function carregarRelatorioLoja(event) {
 
       // Salva a soma do catálogo anterior com os registros novos.
       localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      window.CheckProdutCloud?.saveCatalog(catalogoBase);
 
       atualizarContadorBanco();
       renderizarTabelaBanco();
@@ -503,6 +531,7 @@ function limparBancoDados() {
   if (confirm("Deseja apagar todo o catálogo importado da loja?")) {
     catalogoBase = [];
     localStorage.removeItem(CHAVE_BASE_CATALOGO);
+    window.CheckProdutCloud?.clearCatalog();
     atualizarContadorBanco();
     fecharModalBanco();
     alert("Banco de dados limpo com sucesso!");
@@ -634,7 +663,7 @@ function renderizar() {
       <td>
         <div class="actions">
           <button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Troca"}</button>
-          <button type="button" class="danger" onclick="excluir(${p.id})">✕</button>
+          <button type="button" class="danger master-only" onclick="excluir(${p.id})">✕</button>
         </div>
       </td>
     `;
@@ -660,6 +689,7 @@ function marcarAtualizada(id) {
 function excluir(id) {
   if (!confirm("Deseja excluir este item?")) return;
   produtos = produtos.filter(p => p.id !== id);
+  window.CheckProdutCloud?.deleteProduct(id);
   salvar();
 }
 
@@ -972,5 +1002,125 @@ atualizarContadorBanco();
 renderizar();
 atualizarListaFuncionarios();
 </script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDocs, writeBatch, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAXqTaRsAZ3FB3-GgiFMCiASsX2dntcL-w",
+  authDomain: "checkprodut.firebaseapp.com",
+  projectId: "checkprodut",
+  storageBucket: "checkprodut.firebasestorage.app",
+  messagingSenderId: "920007623470",
+  appId: "1:920007623470:web:6e154dade10291272370bf"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const allowed = {
+  "correiajeisaa@gmail.com": "MASTER",
+  "petcamp.novaodessa@gmail.com": "STORE"
+};
+let role = null, stopProducts = null, stopCatalog = null, ready = false;
+const gate = document.getElementById("authGate");
+const message = document.getElementById("authMessage");
+const status = document.getElementById("cloudStatus");
+const userLabel = document.getElementById("cloudUser");
+function setMessage(t, bad=true) { message.textContent=t; message.style.color=bad?"#c94b4b":"#267044"; }
+function applyRole() {
+  document.querySelectorAll(".master-only").forEach(el => el.style.display = role==="MASTER" ? "" : "none");
+  userLabel.textContent = auth.currentUser ? auth.currentUser.email+" · "+role : "";
+}
+async function seedCollection(name, localItems, remoteDocs) {
+  const remote = new Map(remoteDocs.map(d => [String(d.id), d]));
+  const local = Array.isArray(localItems) ? localItems : [];
+  const merged = new Map(remote);
+  local.forEach(item => {
+    const key = String(item.id ?? item.codigo ?? "");
+    if (key && !merged.has(key)) merged.set(key, item);
+  });
+  if (merged.size > remote.size) {
+    const batch = writeBatch(db);
+    let count=0;
+    for (const [key,item] of merged) {
+      if (!remote.has(key)) {
+        batch.set(doc(collection(db,name),key), item);
+        count++;
+        if (count===450) break;
+      }
+    }
+    if (count) await batch.commit();
+  }
+  return [...merged.values()];
+}
+async function startCloud(user) {
+  const productsRef=collection(db,"checkprodut_produtos");
+  const catalogRef=collection(db,"checkprodut_catalogo");
+  const [pSnap,cSnap]=await Promise.all([getDocs(productsRef),getDocs(catalogRef)]);
+  const localP=JSON.parse(localStorage.getItem("checkprodut_produtos_v8")||"[]");
+  const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
+  const cloudP=await seedCollection("checkprodut_produtos",localP,pSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
+  const cloudC=await seedCollection("checkprodut_catalogo",localC,cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
+  window.produtos=cloudP;
+  window.catalogoBase=cloudC;
+  localStorage.setItem("checkprodut_produtos_v8",JSON.stringify(cloudP));
+  localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
+  window.renderizar?.(); window.atualizarListaFuncionarios?.(); window.atualizarContadorBanco?.();
+  ready=true;
+  stopProducts=onSnapshot(productsRef,snap=>{
+    const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+    window.produtos=rows; localStorage.setItem("checkprodut_produtos_v8",JSON.stringify(rows));
+    window.renderizar?.(); window.atualizarListaFuncionarios?.();
+  },err=>{status.textContent="Erro ao sincronizar produtos";console.error(err);});
+  stopCatalog=onSnapshot(catalogRef,snap=>{
+    const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+    window.catalogoBase=rows; localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(rows));
+    window.atualizarContadorBanco?.(); window.renderizarTabelaBanco?.();
+  },err=>{status.textContent="Erro ao sincronizar catálogo";console.error(err);});
+  status.textContent="Nuvem conectada · sincronização ativa";
+}
+window.CheckProdutCloud = {
+  saveProducts: async rows => {
+    if(!ready) return;
+    const batch=writeBatch(db);
+    rows.forEach(item=>batch.set(doc(db,"checkprodut_produtos",String(item.id)),item));
+    await batch.commit();
+  },
+  saveCatalog: async rows => {
+    if(!ready) return;
+    const batch=writeBatch(db);
+    rows.forEach(item=>batch.set(doc(db,"checkprodut_catalogo",String(item.codigo)),item));
+    await batch.commit();
+  },
+  deleteProduct: async id => { if(ready && role==="MASTER") await deleteDoc(doc(db,"checkprodut_produtos",String(id))); },
+  clearCatalog: async () => {
+    if(!ready || role!=="MASTER") return;
+    const snap=await getDocs(collection(db,"checkprodut_catalogo"));
+    const batch=writeBatch(db); snap.docs.forEach(d=>batch.delete(d.ref)); await batch.commit();
+  },
+  logout: async () => { if(stopProducts)stopProducts(); if(stopCatalog)stopCatalog(); ready=false; await signOut(auth); }
+};
+document.getElementById("authForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const btn=document.getElementById("authSubmit"); btn.disabled=true; btn.textContent="Entrando...";
+  try {
+    await signInWithEmailAndPassword(auth,document.getElementById("authEmail").value.trim().toLowerCase(),document.getElementById("authPassword").value);
+  } catch(err) {
+    setMessage(err.code==="auth/invalid-credential"?"E-mail ou senha incorretos.":err.message);
+  } finally { btn.disabled=false; btn.textContent="Entrar"; }
+});
+onAuthStateChanged(auth,async user=>{
+  if(stopProducts)stopProducts(); if(stopCatalog)stopCatalog(); ready=false;
+  if(!user) { role=null; gate.style.display="flex"; status.textContent="Aguardando acesso"; userLabel.textContent=""; return; }
+  const email=(user.email||"").toLowerCase();
+  if(!allowed[email]) { await signOut(auth); setMessage("Este e-mail não está autorizado para acessar o CheckProdut."); return; }
+  role=allowed[email]; applyRole(); gate.style.display="none"; status.textContent="Conectando à nuvem...";
+  try { await startCloud(user); }
+  catch(err) { console.error("Firebase CheckProdut:",err); status.textContent="Falha na conexão com a nuvem"; gate.style.display="flex"; setMessage("Não foi possível acessar o banco. Confira se Authentication e Firestore estão ativados e se as regras foram publicadas."); }
+});
+</script>
+
 </body>
 </html>
