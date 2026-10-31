@@ -475,7 +475,7 @@ function gravarImportacao(dados, origem, event) {
   if(event?.target)event.target.value="";
 }
 
-async function carregarRelatorioLoja(event) {
+async async function carregarRelatorioLoja(event) {
   const file=event.target.files?.[0];
   if(!file)return;
   try {
