@@ -350,6 +350,17 @@ let camerasBarcode = [];
 let cameraBarcodeAtual = null;
 let processandoOCR = false;
 
+// Ponte segura para os dados recebidos da nuvem (mantém as variáveis originais do sistema).
+window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
+  if (Array.isArray(novosProdutos)) produtos = novosProdutos;
+  if (Array.isArray(novoCatalogo)) catalogoBase = novoCatalogo;
+  localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
+  localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+  renderizar();
+  atualizarListaFuncionarios();
+  atualizarContadorBanco();
+};
+
 function salvar() {
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
   window.CheckProdutCloud?.saveProducts(produtos);
@@ -1063,21 +1074,16 @@ async function startCloud(user) {
   const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
   const cloudP=await seedCollection("checkprodut_produtos",localP,pSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
   const cloudC=await seedCollection("checkprodut_catalogo",localC,cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
-  window.produtos=cloudP;
-  window.catalogoBase=cloudC;
-  localStorage.setItem("checkprodut_produtos_v8",JSON.stringify(cloudP));
-  localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
-  window.renderizar?.(); window.atualizarListaFuncionarios?.(); window.atualizarContadorBanco?.();
+  window.aplicarDadosDaNuvem(cloudP,cloudC);
   ready=true;
   stopProducts=onSnapshot(productsRef,snap=>{
     const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
-    window.produtos=rows; localStorage.setItem("checkprodut_produtos_v8",JSON.stringify(rows));
-    window.renderizar?.(); window.atualizarListaFuncionarios?.();
+    window.aplicarDadosDaNuvem(rows,null);
   },err=>{status.textContent="Erro ao sincronizar produtos";console.error(err);});
   stopCatalog=onSnapshot(catalogRef,snap=>{
     const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
-    window.catalogoBase=rows; localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(rows));
-    window.atualizarContadorBanco?.(); window.renderizarTabelaBanco?.();
+    window.aplicarDadosDaNuvem(null,rows);
+    window.renderizarTabelaBanco?.();
   },err=>{status.textContent="Erro ao sincronizar catálogo";console.error(err);});
   status.textContent="Nuvem conectada · sincronização ativa";
 }
