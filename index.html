@@ -391,11 +391,17 @@ function carregarRelatorioLoja(event) {
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
         if (!rows.length) continue;
         let headerIdx = -1, colGtin = -1, colDesc = -1, colVal = -1;
-        for (let i = 0; i < Math.min(rows.length, 25); i++) {
+        // Reconhece variações comuns dos relatórios de loja (inclusive abreviações).
+        const ehCodigo = h => /gtin|ean|codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
+        const ehDescricao = h => /descricao|descr|nome.*produto|produto|^item$/.test(h);
+        const ehValidade = h => /valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
+        for (let i = 0; i < Math.min(rows.length, 40); i++) {
           const hs = (rows[i] || []).map(norm);
-          const gi = hs.findIndex(h => /gtin|ean|codigo de barras|cod barra|cod barras|barras/.test(h));
-          const di = hs.findIndex(h => /descricao|descr produto|nome produto|produto|item/.test(h));
-          const vi = hs.findIndex(h => /validade|vencimento|data de venc|dt venc/.test(h));
+          const gi = hs.findIndex(ehCodigo);
+          const di = hs.findIndex(ehDescricao);
+          const vi = hs.findIndex(ehValidade);
+          // O cabeçalho é aceito quando identifica código e descrição; validade é procurada
+          // em toda a linha, inclusive nomes abreviados como "Dt. Val." e "Val. Lote".
           if (gi >= 0 && di >= 0) { headerIdx=i; colGtin=gi; colDesc=di; colVal=vi; break; }
         }
         // Compatibilidade com o relatório antigo: código na coluna E e descrição na D.
@@ -405,7 +411,7 @@ function carregarRelatorioLoja(event) {
             if (row.length >= 5 && row.some(v => /produto|descri/i.test(String(v))) ) {
               headerIdx=i; colGtin=4; colDesc=3;
               const hs=row.map(norm);
-              colVal=hs.findIndex(h => /validade|vencimento/.test(h));
+              colVal=hs.findIndex(h => /valid|venc|^dt\\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h));
               break;
             }
           }
@@ -749,6 +755,9 @@ function interpretarDataValidade(dataStr) {
   }
 
   const valor = String(dataStr).trim();
+  // Alguns relatórios exportam a data como texto com horário ou com ano/mês/dia.
+  const textoDataHora = valor.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{2}|\\d{4})[ T].*$/);
+  if (textoDataHora) return interpretarDataValidade(textoDataHora[1]+"/"+textoDataHora[2]+"/"+textoDataHora[3]);
   // Quando o Excel entrega o serial como texto, converte antes de analisar datas escritas.
   if (/^\d{5}(?:\.0+)?$/.test(valor)) {
     const serial = Number(valor);
