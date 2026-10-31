@@ -109,4 +109,726 @@
     .badge-auto { font-size: 10px; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
     
     @media(max-width:900px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
-    @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid
+    @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">C</div>
+    <div>
+      <h1>CheckProdut</h1>
+      <small>CONTROLE INTELIGENTE DE VALIDADE · PETCAMP</small>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="secondary" onclick="abrirModalImportacao()">📥 Importar Planilha CSV</button>
+  </div>
+</header>
+
+<main>
+  <div class="welcome">
+    <div>
+      <h2>Painel de Validade e Estoque</h2>
+      <div class="subtitle">Cadastre produtos, monitore trocas de etiquetas e consulte setores.</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="outline" onclick="carregarDadosExemplo()">⚡ Dados de Teste</button>
+      <button class="primary" onclick="document.getElementById('cadastro').scrollIntoView({behavior:'smooth'})">+ Novo Produto</button>
+    </div>
+  </div>
+
+  <section class="cards">
+    <div class="card green">
+      <small>Produtos Cadastrados</small>
+      <div class="number" id="total">0</div>
+    </div>
+    <div class="card orange">
+      <small>Alerta 15% (Atenção)</small>
+      <div class="number" id="alerta15">0</div>
+    </div>
+    <div class="card red">
+      <small>Alerta 30% (Urgente)</small>
+      <div class="number" id="alerta30">0</div>
+    </div>
+    <div class="card blue">
+      <small>Etiquetas Atualizadas</small>
+      <div class="number" id="atualizados">0</div>
+    </div>
+  </section>
+
+  <!-- FORMULÁRIO DE CADASTRO -->
+  <section class="panel" id="cadastro">
+    <div class="panel-head">
+      <div>
+        <h3 id="formTitle">Cadastrar Produto</h3>
+        <span class="subtitle">Bipe o código de barras e informe a validade.</span>
+      </div>
+      <button id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar Edição</button>
+    </div>
+
+    <form id="formProduto">
+      <input type="hidden" id="editId">
+      <div class="form-grid">
+        <div>
+          <label for="barcode">Código de Barras (EAN)</label>
+          <div class="input-with-btn">
+            <input id="barcode" placeholder="Bipe ou digite o EAN" required oninput="buscarProdutoPorCodigo(this.value)">
+            <button type="button" class="secondary icon-btn" title="Ler Código com Câmera" onclick="abrirScannerBarcode()">📷</button>
+          </div>
+        </div>
+        
+        <div>
+          <label for="descricao">Descrição do Produto</label>
+          <input id="descricao" placeholder="Nome do produto" required oninput="autoDetectarSetor(this.value)">
+        </div>
+
+        <div>
+          <label for="peso">Peso / Apresentação</label>
+          <input id="peso" placeholder="Ex.: 15 kg, 500ml">
+        </div>
+
+        <div>
+          <label for="setor">Setor da Loja <span id="autoSetorBadge" class="badge-auto" style="display:none;">Sugerido!</span></label>
+          <select id="setor" required>
+            <option value="">Selecione o Setor</option>
+            <option value="Rações Dry">Rações Dry (Secas)</option>
+            <option value="Rações Úmidas">Rações Úmidas (Sachês/Latas)</option>
+            <option value="Higiene e Limpeza">Higiene e Limpeza</option>
+            <option value="Farmácia e Medicamentos">Farmácia e Medicamentos</option>
+            <option value="Acessórios e Brinquedos">Acessórios e Brinquedos</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="quantidade">Quantidade (cx/un)</label>
+          <input id="quantidade" type="number" min="1" value="1" placeholder="Qtd" required>
+        </div>
+
+        <div>
+          <label for="validade">Data de Validade</label>
+          <div class="input-with-btn">
+            <input id="validade" type="date" required>
+            <button type="button" class="secondary icon-btn" title="Falar Validade por Voz" onclick="iniciarLeituraVoz()">🎤</button>
+            <button type="button" class="secondary icon-btn" title="Tirar Foto da Validade (OCR)" onclick="abrirModalOCR()">📷</button>
+          </div>
+        </div>
+
+        <div>
+          <label for="especie">Espécie Pet</label>
+          <select id="especie">
+            <option value="Cachorro">Cachorro</option>
+            <option value="Gato">Gato</option>
+            <option value="Ambos">Ambos</option>
+            <option value="Geral">Geral / Não se aplica</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="funcionario">Funcionário Responsável</label>
+          <input id="funcionario" placeholder="Seu nome ou RE" required>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="reset" class="secondary">Limpar</button>
+        <button type="submit" class="primary" id="btnSalvar">Salvar Produto</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- TABELA E FILTROS -->
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Produtos Acompanhados</h3>
+        <div class="subtitle">Monitore produtos perto da validade e trocas de etiquetas.</div>
+      </div>
+      <button class="secondary" onclick="exportarCSV()">Exportar CSV (Excel)</button>
+    </div>
+
+    <!-- ABAS DE SETORES -->
+    <div class="tabs-setores" id="tabsSetores">
+      <div class="tab-item active" onclick="filtrarSetor('TODOS', this)">Todos os Setores</div>
+      <div class="tab-item" onclick="filtrarSetor('Rações Dry', this)">Rações Dry</div>
+      <div class="tab-item" onclick="filtrarSetor('Rações Úmidas', this)">Rações Úmidas</div>
+      <div class="tab-item" onclick="filtrarSetor('Higiene e Limpeza', this)">Higiene/Limpeza</div>
+      <div class="tab-item" onclick="filtrarSetor('Farmácia e Medicamentos', this)">Farmácia</div>
+      <div class="tab-item" onclick="filtrarSetor('Acessórios e Brinquedos', this)">Acessórios</div>
+      <div class="tab-item" onclick="filtrarSetor('Outros', this)">Outros</div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+      <input id="busca" style="flex:1; min-width:200px;" placeholder="Pesquisar por código EAN, nome, setor ou funcionário..." oninput="renderizar()">
+      <select id="filtroFuncionario" style="width:200px;" onchange="renderizar()">
+        <option value="">Todos os Funcionários</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Código (EAN)</th>
+            <th>Produto / Apresentação</th>
+            <th>Setor</th>
+            <th>Qtd</th>
+            <th>Validade</th>
+            <th>Dias Restantes</th>
+            <th>Situação / Etiqueta</th>
+            <th>Responsável</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div id="vazio" class="empty">Nenhum produto cadastrado no momento.</div>
+    </div>
+  </section>
+
+  <div class="footer">CheckProdut · Sistema de Gestão de Validade Petcamp · Desenvolvido para Alta Produtividade</div>
+</main>
+
+<!-- MODAL IMPORTAR PLANILHA -->
+<div class="modal" id="modalImportar">
+  <div class="modal-content">
+    <div class="modal-head">
+      <h4>Importar Base de Produtos (CSV)</h4>
+      <button class="outline icon-btn" onclick="fecharModal('modalImportar')">✕</button>
+    </div>
+    <p style="font-size:13px; color:var(--muted);">Selecione um arquivo CSV para cadastrar produtos em lote. O arquivo deve ter os cabeçalhos: <strong>codigo, descricao, peso, setor</strong>.</p>
+    <input type="file" id="csvFile" accept=".csv" style="margin-bottom:15px;">
+    <div class="form-actions">
+      <button class="secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
+      <button class="primary" onclick="processarCSV()">Importar Planilha</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SCANNER BARCODE -->
+<div class="modal" id="modalScanner">
+  <div class="modal-content">
+    <div class="modal-head">
+      <h4>Leitor de Código de Barras</h4>
+      <button class="outline icon-btn" onclick="fecharScannerBarcode()">✕</button>
+    </div>
+    <div id="reader" style="width:100%;"></div>
+  </div>
+</div>
+
+<!-- MODAL OCR (VALIDADE POR FOTO) -->
+<div class="modal" id="modalOCR">
+  <div class="modal-content">
+    <div class="modal-head">
+      <h4>Fotografar Validade</h4>
+      <button class="outline icon-btn" onclick="fecharModalOCR()">✕</button>
+    </div>
+    <p style="font-size:12px; color:var(--muted);">Aponte a câmera para a data impressa na caixa/embalagem do produto.</p>
+    <div class="camera-box">
+      <video id="videoOCR" autoplay playsinline></video>
+    </div>
+    <div id="ocrStatus" style="font-size:12px; margin:10px 0; font-weight:bold; color:var(--green);"></div>
+    <div class="form-actions">
+      <button class="secondary" onclick="fecharModalOCR()">Cancelar</button>
+      <button class="primary" onclick="capturarEProcessarOCR()">Capturar e Extrair Data</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CHAVE_PRODUTOS = "checkprodut_produtos_v3";
+const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v3";
+
+let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
+let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
+let setorFiltroAtual = "TODOS";
+let html5QrcodeScanner = null;
+let streamVideoOCR = null;
+
+function salvar() {
+  localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
+  renderizar();
+  atualizarListaFuncionarios();
+}
+
+function diasRestantes(dataStr) {
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  const validade = new Date(dataStr + "T00:00:00");
+  return Math.ceil((validade - hoje) / (1000 * 60 * 60 * 24));
+}
+
+function situacao(p) {
+  const dias = diasRestantes(p.validade);
+  if (dias <= 90) return { texto:"Alterar etiqueta · 30%", classe:"urgent", faixa:30 };
+  if (dias <= 120) return { texto:"Alterar etiqueta · 15%", classe:"warn", faixa:15 };
+  return { texto:"Acompanhamento", classe:"ok", faixa:0 };
+}
+
+function formatarData(dataStr) {
+  if(!dataStr) return "—";
+  const parts = dataStr.split("-");
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+// REGRAS DE AUTO-DETECÇÃO DE SETOR
+function autoDetectarSetor(descricao) {
+  const desc = descricao.toLowerCase();
+  const selectSetor = document.getElementById("setor");
+  const badge = document.getElementById("autoSetorBadge");
+
+  let setorDetectado = "";
+
+  if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal") || desc.includes("granplus")) {
+    if (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata") || desc.includes("pate") || desc.includes("patê")) {
+      setorDetectado = "Rações Úmidas";
+    } else {
+      setorDetectado = "Rações Dry";
+    }
+  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("creme") || desc.includes("escova") || desc.includes("sanitário") || desc.includes("tapete")) {
+    setorDetectado = "Higiene e Limpeza";
+  } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("antipulgas") || desc.includes("remédio") || desc.includes("remedio") || desc.includes("vacin") || desc.includes("pomada")) {
+    setorDetectado = "Farmácia e Medicamentos";
+  } else if (desc.includes("brinquedo") || desc.includes("coleira") || desc.includes("guia") || desc.includes("cama") || desc.includes("arranhador")) {
+    setorDetectado = "Acessórios e Brinquedos";
+  }
+
+  if (setorDetectado) {
+    selectSetor.value = setorDetectado;
+    badge.style.display = "inline-block";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+// BUSCA AUTOMÁTICA SE O CÓDIGO JÁ EXISTE NO CATÁLOGO OU BANCO
+function buscarProdutoPorCodigo(codigo) {
+  const ean = codigo.trim();
+  if(!ean) return;
+
+  // Busca primeiro nos produtos já cadastrados
+  const existente = produtos.find(p => p.barcode === ean);
+  if (existente) {
+    document.getElementById("descricao").value = existente.descricao;
+    document.getElementById("peso").value = existente.peso || "";
+    document.getElementById("setor").value = existente.setor;
+    document.getElementById("especie").value = existente.especie || "Cachorro";
+    return;
+  }
+
+  // Busca no catálogo base importado
+  const itemCatalogo = catalogoBase.find(c => c.codigo === ean);
+  if (itemCatalogo) {
+    document.getElementById("descricao").value = itemCatalogo.descricao;
+    document.getElementById("peso").value = itemCatalogo.peso || "";
+    document.getElementById("setor").value = itemCatalogo.setor || "Outros";
+    autoDetectarSetor(itemCatalogo.descricao);
+  }
+}
+
+// CADASTRO / EDIÇÃO
+document.getElementById("formProduto").addEventListener("submit", function(e) {
+  e.preventDefault();
+  
+  const editId = document.getElementById("editId").value;
+  const p = {
+    id: editId ? Number(editId) : Date.now(),
+    barcode: document.getElementById("barcode").value.trim(),
+    descricao: document.getElementById("descricao").value.trim(),
+    peso: document.getElementById("peso").value.trim(),
+    setor: document.getElementById("setor").value,
+    quantidade: Number(document.getElementById("quantidade").value),
+    validade: document.getElementById("validade").value,
+    especie: document.getElementById("especie").value,
+    funcionario: document.getElementById("funcionario").value.trim(),
+    etiquetaAtualizada: false
+  };
+
+  if (editId) {
+    const idx = produtos.findIndex(x => x.id === Number(editId));
+    if (idx !== -1) produtos[idx] = p;
+  } else {
+    produtos.push(p);
+  }
+
+  salvar();
+  cancelarEdicao();
+  alert(editId ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
+});
+
+function editarProduto(id) {
+  const p = produtos.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById("editId").value = p.id;
+  document.getElementById("barcode").value = p.barcode;
+  document.getElementById("descricao").value = p.descricao;
+  document.getElementById("peso").value = p.peso || "";
+  document.getElementById("setor").value = p.setor;
+  document.getElementById("quantidade").value = p.quantidade;
+  document.getElementById("validade").value = p.validade;
+  document.getElementById("especie").value = p.especie || "Cachorro";
+  document.getElementById("funcionario").value = p.funcionario;
+
+  document.getElementById("formTitle").textContent = "Editar Produto";
+  document.getElementById("btnSalvar").textContent = "Atualizar Produto";
+  document.getElementById("btnCancelarEdicao").style.display = "inline-flex";
+
+  document.getElementById("cadastro").scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicao() {
+  document.getElementById("editId").value = "";
+  document.getElementById("formProduto").reset();
+  document.getElementById("formTitle").textContent = "Cadastrar Produto";
+  document.getElementById("btnSalvar").textContent = "Salvar Produto";
+  document.getElementById("btnCancelarEdicao").style.display = "none";
+  document.getElementById("autoSetorBadge").style.display = "none";
+}
+
+function marcarAtualizada(id) {
+  const p = produtos.find(x => x.id === id);
+  if (!p) return;
+
+  if (!p.etiquetaAtualizada) {
+    const resp = prompt("Nome do funcionário que trocou a etiqueta:", p.funcionario);
+    if (!resp) return;
+    p.etiquetaAtualizada = true;
+    p.funcionarioTroca = resp;
+    p.dataAtualizacao = new Date().toISOString();
+  } else {
+    p.etiquetaAtualizada = false;
+    p.funcionarioTroca = null;
+  }
+  salvar();
+}
+
+function excluir(id) {
+  if (!confirm("Deseja realmente excluir este registro?")) return;
+  produtos = produtos.filter(p => p.id !== id);
+  salvar();
+}
+
+// RENDERIZAÇÃO DA TABELA E FILTROS
+function filtrarSetor(setor, el) {
+  setorFiltroAtual = setor;
+  document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  renderizar();
+}
+
+function renderizar() {
+  const busca = (document.getElementById("busca")?.value || "").toLowerCase();
+  const funcFiltro = document.getElementById("filtroFuncionario")?.value || "";
+
+  const filtrados = produtos.filter(p => {
+    const matchBusca = [p.barcode, p.descricao, p.setor, p.funcionario, p.funcionarioTroca].join(" ").toLowerCase().includes(busca);
+    const matchSetor = (setorFiltroAtual === "TODOS" || p.setor === setorFiltroAtual);
+    const matchFunc = (!funcFiltro || p.funcionario === funcFiltro || p.funcionarioTroca === funcFiltro);
+    return matchBusca && matchSetor && matchFunc;
+  });
+
+  // Atualiza Contadores
+  document.getElementById("total").textContent = produtos.length;
+  document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
+  document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
+  document.getElementById("atualizados").textContent = produtos.filter(p => p.etiquetaAtualizada).length;
+
+  const tbody = document.getElementById("lista");
+  tbody.innerHTML = "";
+  document.getElementById("vazio").style.display = filtrados.length ? "none" : "block";
+
+  // Ordena por menor data de validade
+  filtrados.sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
+
+  filtrados.forEach(p => {
+    const dias = diasRestantes(p.validade);
+    const s = situacao(p);
+    const statusTag = p.etiquetaAtualizada
+      ? `<span class="tag done">Etiqueta Alterada</span>`
+      : `<span class="tag ${s.classe}">${s.texto}</span>`;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="code-badge">${escapar(p.barcode)}</span></td>
+      <td><strong>${escapar(p.descricao)}</strong><br><small style="color:var(--muted);">${escapar(p.peso || "S/ peso")}</small></td>
+      <td><span class="tag setor">${escapar(p.setor)}</span></td>
+      <td><strong>${p.quantidade}</strong></td>
+      <td>${formatarData(p.validade)}</td>
+      <td>${dias < 0 ? `<strong style="color:var(--red);">Vencido há ${Math.abs(dias)} dias</strong>` : `${dias} dias`}</td>
+      <td>${statusTag}</td>
+      <td><small>${escapar(p.funcionario)}${p.funcionarioTroca ? `<br><b style="color:var(--green);">Troca: ${escapar(p.funcionarioTroca)}</b>` : ''}</small></td>
+      <td>
+        <div class="actions">
+          <button class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Marcar Troca"}</button>
+          <button class="outline" onclick="editarProduto(${p.id})">Editar</button>
+          <button class="danger" onclick="excluir(${p.id})">✕</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function atualizarListaFuncionarios() {
+  const select = document.getElementById("filtroFuncionario");
+  const funcSet = new Set();
+  produtos.forEach(p => {
+    if(p.funcionario) funcSet.add(p.funcionario);
+    if(p.funcionarioTroca) funcSet.add(p.funcionarioTroca);
+  });
+
+  const atual = select.value;
+  select.innerHTML = '<option value="">Todos os Funcionários</option>';
+  funcSet.forEach(f => {
+    const opt = document.createElement("option");
+    opt.value = f;
+    opt.textContent = f;
+    select.appendChild(opt);
+  });
+  select.value = atual;
+}
+
+function escapar(v) {
+  return String(v || "").replace(/[&<>"']/g, c => ({
+    "&":"&","<":"<",">":">",'"':""","'":"'"
+  }[c]));
+}
+
+// RECONHECIMENTO DE VOZ (MICROFONE)
+function iniciarLeituraVoz() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Reconhecimento de voz não é suportado neste navegador. Use o Chrome no Android/PC.");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.interimResults = false;
+
+  alert("Fale a data de validade (Exemplo: '15 de novembro de 2026' ou 'dez de maio de vinte e sete').");
+
+  recognition.start();
+
+  recognition.onresult = function(event) {
+    const texto = event.results[0][0].transcript;
+    console.log("Voz capturada:", texto);
+    
+    // Tenta converter texto em data
+    const dataConvertida = converterTextoParaData(texto);
+    if (dataConvertida) {
+      document.getElementById("validade").value = dataConvertida;
+      alert(`Validade reconhecida: ${formatarData(dataConvertida)}`);
+    } else {
+      alert(`Voz capturada: "${texto}". Não conseguimos identificar a data exata. Selecione no calendário.`);
+    }
+  };
+
+  recognition.onerror = function(event) {
+    alert("Erro ao escutar áudio: " + event.error);
+  };
+}
+
+function converterTextoParaData(texto) {
+  const meses = {
+    'janeiro':'01','fevereiro':'02','março':'03','marco':'03','abril':'04','maio':'05','junho':'06',
+    'julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'
+  };
+
+  const t = texto.toLowerCase();
+  
+  // Exemplo: 15/10/2026 ou 15 10 2026
+  const regexNum = /(\d{1,2})[\/\s\.-](\d{1,2})[\/\s\.-](\d{2,4})/;
+  const matchNum = t.match(regexNum);
+  if (matchNum) {
+    let dia = matchNum[1].padStart(2, '0');
+    let mes = matchNum[ mes[2] ? matchNum[2].padStart(2, '0') : '01' ];
+    let ano = matchNum[3].length === 2 ? "20" + matchNum[3] : matchNum[3];
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  // Exemplo: 15 de novembro de 2026
+  for (let key in meses) {
+    if (t.includes(key)) {
+      const matchDia = t.match(/(\d{1,2})/);
+      const matchAno = t.match(/(20\d{2})/);
+      if (matchDia && matchAno) {
+        let dia = matchDia[1].padStart(2, '0');
+        let mes = meses[key];
+        let ano = matchAno[1];
+        return `${ano}-${mes}-${dia}`;
+      }
+    }
+  }
+  return null;
+}
+
+// SCANNER BARCODE VIA CÂMERA
+function abrirScannerBarcode() {
+  document.getElementById("modalScanner").style.display = "flex";
+  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
+  html5QrcodeScanner.render((decodedText) => {
+    document.getElementById("barcode").value = decodedText;
+    buscarProdutoPorCodigo(decodedText);
+    fecharScannerBarcode();
+  });
+}
+
+function fecharScannerBarcode() {
+  if (html5QrcodeScanner) {
+    html5QrcodeScanner.clear().catch(e => console.log(e));
+  }
+  fecharModal("modalScanner");
+}
+
+// OCR DE VALIDADE POR FOTO
+function abrirModalOCR() {
+  document.getElementById("modalOCR").style.display = "flex";
+  const video = document.getElementById("videoOCR");
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(stream => {
+      streamVideoOCR = stream;
+      video.srcObject = stream;
+    })
+    .catch(err => {
+      alert("Não foi possível acessar a câmera para OCR.");
+      fecharModalOCR();
+    });
+}
+
+function fecharModalOCR() {
+  if (streamVideoOCR) {
+    streamVideoOCR.getTracks().forEach(track => track.stop());
+  }
+  fecharModal("modalOCR");
+}
+
+function capturarEProcessarOCR() {
+  const video = document.getElementById("videoOCR");
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0);
+
+  document.getElementById("ocrStatus").textContent = "Processando foto e lendo data...";
+
+  Tesseract.recognize(canvas, 'por', { logger: m => console.log(m) })
+    .then(({ data: { text } }) => {
+      console.log("OCR Texto:", text);
+      const dataExtraida = converterTextoParaData(text);
+      if (dataExtraida) {
+        document.getElementById("validade").value = dataExtraida;
+        alert("Validade extraída da foto com sucesso!");
+        fecharModalOCR();
+      } else {
+        document.getElementById("ocrStatus").textContent = `Texto lido: "${text.trim()}". Tente aproximar mais da data.`;
+      }
+    });
+}
+
+// IMPORTAÇÃO CSV DA PLANILHA DE PRODUTOS
+function abrirModalImportacao() {
+  document.getElementById("modalImportar").style.display = "flex";
+}
+
+function fecharModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+function processarCSV() {
+  const fileInput = document.getElementById("csvFile");
+  if (!fileInput.files.length) {
+    alert("Selecione um arquivo CSV.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const linhas = e.target.result.split("\n");
+    let adicionados = 0;
+
+    linhas.forEach((linha, index) => {
+      if (index === 0 || !linha.trim()) return; // Ignora cabeçalho
+      const cols = linha.split(";").map(c => c.replace(/"/g, '').trim());
+
+      if (cols.length >= 2) {
+        const item = {
+          codigo: cols[0],
+          descricao: cols[1],
+          peso: cols[2] || "",
+          setor: cols[3] || "Outros"
+        };
+        catalogoBase.push(item);
+        adicionados++;
+      }
+    });
+
+    localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+    alert(`${adicionados} produtos importados para o banco do leitor!`);
+    fecharModal("modalImportar");
+  };
+  reader.readAsText(fileInput.files[0]);
+}
+
+// EXPORTAR DADOS PARA CSV
+function exportarCSV() {
+  if (!produtos.length) {
+    alert("Não existem produtos para exportar.");
+    return;
+  }
+
+  const linhas = [["Código EAN", "Produto", "Peso", "Setor", "Quantidade", "Validade", "Dias Restantes", "Situação", "Cadastrado Por", "Troca Efetuada Por"]];
+  produtos.forEach(p => {
+    linhas.push([
+      p.barcode,
+      p.descricao,
+      p.peso,
+      p.setor,
+      p.quantidade,
+      formatarData(p.validade),
+      diasRestantes(p.validade),
+      situacao(p).texto,
+      p.funcionario,
+      p.funcionarioTroca || "Pendente"
+    ]);
+  });
+
+  const csv = "\uFEFF" + linhas.map(l => l.map(v => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(";")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `CheckProdut_Validades_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// CARREGAR DADOS DE EXEMPLO (DEMONSTRAÇÃO)
+function carregarDadosExemplo() {
+  if (produtos.length && !confirm("Isso vai adicionar novos itens de teste. Deseja continuar?")) return;
+
+  const hoje = new Date();
+  const d90 = new Date(hoje.getTime() + 60*86400000).toISOString().slice(0,10);
+  const d110 = new Date(hoje.getTime() + 105*86400000).toISOString().slice(0,10);
+  const d150 = new Date(hoje.getTime() + 150*86400000).toISOString().slice(0,10);
+
+  const exemplos = [
+    { id: Date.now()+1, barcode: "7891008123456", descricao: "Ração Premier Raças Pequenas", peso: "15 kg", setor: "Rações Dry", quantidade: 4, validade: d90, especie: "Cachorro", funcionario: "Jeisa", etiquetaAtualizada: false },
+    { id: Date.now()+2, barcode: "7891008654321", descricao: "Shampoo Neutro Pet", peso: "500 ml", setor: "Higiene e Limpeza", quantidade: 10, validade: d110, especie: "Ambos", funcionario: "Carlos", etiquetaAtualizada: false },
+    { id: Date.now()+3, barcode: "7891008999999", descricao: "Sachê Golden Gatos Frango", peso: "85 g", setor: "Rações Úmidas", quantidade: 24, validade: d150, especie: "Gato", funcionario: "Jeisa", etiquetaAtualizada: true, funcionarioTroca: "Jeisa" }
+  ];
+
+  produtos.push(...exemplos);
+  salvar();
+}
+
+// INICIALIZAÇÃO
+renderizar();
+atualizarListaFuncionarios();
+</script>
+</body>
+</html>
