@@ -4,11 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CheckProdut | Controle Inteligente de Validade</title>
-  <!-- SheetJS para ler arquivos Excel (.xlsx) diretamente -->
+  <!-- Biblioteca SheetJS para ler planilhas .xlsx do sistema -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- Tesseract OCR para leitura de imagem -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-  <!-- HTML5-QRCode para leitura de código de barras -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     :root {
@@ -26,20 +24,18 @@
     }
     * { box-sizing: border-box; }
     body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, sans-serif; color:var(--text); }
-    header { background:var(--green); color:white; padding:16px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+    header { background:var(--green); color:white; padding:16px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; }
     .brand { display:flex; align-items:center; gap:12px; }
     .logo { width:42px; height:42px; background:var(--lime); color:var(--green); border-radius:10px; display:grid; place-items:center; font-size:22px; font-weight:900; }
-    .brand h1 { font-size:20px; margin:0; font-weight:800; letter-spacing:-0.5px; }
+    .brand h1 { font-size:20px; margin:0; font-weight:800; }
     .brand small { display:block; color:#c5d6cc; font-size:10px; letter-spacing:1px; }
     main { max-width:1200px; margin:20px auto; padding:0 15px; }
     .welcome { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:18px; }
     h2 { margin:0 0 4px; font-size:22px; color:var(--green); }
     .subtitle { color:var(--muted); font-size:12px; }
-    button { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
+    button, label.btn-upload { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; text-decoration:none; }
     .primary { background:var(--green); color:white; }
-    .primary:hover { background:var(--green2); }
     .secondary { background:#e2eae4; color:var(--green); }
-    .secondary:hover { background:#d3ded6; }
     .danger { background:#fae9e8; color:#a83c3c; }
     .outline { background:transparent; border:1px solid var(--border); color:var(--text); }
     .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
@@ -56,7 +52,6 @@
     .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
     label { display:block; font-size:11px; font-weight:700; margin-bottom:5px; color:#415249; }
     input, select { width:100%; padding:10px 12px; border:1px solid #c8d4cb; border-radius:8px; background:white; font-size:13px; color:var(--text); outline:none; }
-    input:focus, select:focus { border-color:var(--green); }
     .input-with-btn { display:flex; gap:6px; }
     .input-with-btn input { flex:1; }
     .icon-btn { padding:0 12px; height:39px; font-size:15px; }
@@ -64,10 +59,10 @@
     .tabs-setores { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; }
     .tab-item { padding:6px 12px; border-radius:18px; background:#eef3ef; font-size:11px; font-weight:700; color:var(--muted); cursor:pointer; white-space:nowrap; }
     .tab-item.active { background:var(--green); color:white; }
-    .code-badge { font-family: monospace; font-size: 12px; font-weight: 700; background: #eef3ef; padding: 3px 6px; border-radius: 4px; color: #1e3a2b; border: 1px solid #d4dfd7; display: inline-block; }
+    .code-badge { font-family: monospace; font-size: 12px; font-weight: 700; background: #eef3ef; padding: 3px 6px; border-radius: 4px; color: #1e3a2b; border: 1px solid #d4dfd7; }
     .table-wrap { overflow-x:auto; }
     table { width:100%; border-collapse:collapse; min-width:820px; }
-    th { text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; padding:10px 8px; border-bottom:2px solid var(--border); font-weight:700; }
+    th { text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; padding:10px 8px; border-bottom:2px solid var(--border); }
     td { padding:11px 8px; border-bottom:1px solid var(--border); font-size:12px; vertical-align:middle; }
     .tag { display:inline-block; padding:4px 8px; border-radius:15px; font-size:10px; font-weight:700; }
     .tag.ok { background:#e7f3e9; color:#267044; }
@@ -83,9 +78,10 @@
     .modal-content { background:white; border-radius:12px; width:100%; max-width:480px; padding:20px; max-height:85vh; overflow-y:auto; }
     .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .modal-head h4 { margin:0; font-size:16px; color:var(--green); }
-    .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; position:relative; }
+    .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; }
     .camera-box video { width:100%; height:100%; object-fit:cover; }
-    .badge-auto { font-size: 9px; background: #e8f5e9; color: #2e7d32; padding: 2px 5px; border-radius: 3px; font-weight: bold; margin-left: 4px; }
+    .badge-auto { font-size: 9px; background: #e8f5e9; color: #2e7d32; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+    .file-input-hidden { display:none; }
     @media(max-width:850px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
     @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid-template-columns:1fr;} }
   </style>
@@ -101,15 +97,19 @@
     </div>
   </div>
   <div>
-    <button type="button" class="secondary" onclick="abrirModalImportacao()">📥 Importar Relatório (.xlsx / .csv)</button>
+    <!-- BOTÃO DIRETO DE UPLOAD DA PLANILHA DO SISTEMA DA LOJA -->
+    <label class="btn-upload secondary">
+      📥 Carregar Relatório da Loja (.xlsx)
+      <input type="file" id="relatorioFile" class="file-input-hidden" accept=".xlsx, .xls, .csv" onchange="carregarRelatorioLoja(event)">
+    </label>
   </div>
 </header>
 
 <main>
   <div class="welcome">
     <div>
-      <h2>Painel de Validade e Estoque</h2>
-      <div class="subtitle">Cadastre produtos bipando o código e monitore trocas de etiquetas.</div>
+      <h2>Painel de Validade</h2>
+      <div class="subtitle">Bipe o código do produto e a descrição aparecerá automaticamente.</div>
     </div>
     <div style="display:flex; gap:8px;">
       <button type="button" class="outline" onclick="carregarDadosExemplo()">⚡ Dados de Teste</button>
@@ -118,7 +118,7 @@
   </div>
 
   <section class="cards">
-    <div class="card green"><small>Cadastrados</small><div class="number" id="total">0</div></div>
+    <div class="card green"><small>Produtos Cadastrados</small><div class="number" id="total">0</div></div>
     <div class="card orange"><small>Alerta 15%</small><div class="number" id="alerta15">0</div></div>
     <div class="card red"><small>Alerta 30%</small><div class="number" id="alerta30">0</div></div>
     <div class="card blue"><small>Etiquetas Atualizadas</small><div class="number" id="atualizados">0</div></div>
@@ -129,9 +129,9 @@
     <div class="panel-head">
       <div>
         <h3 id="formTitle">Cadastrar Produto</h3>
-        <span class="subtitle">Bipe o código de barras para preencher a descrição automaticamente</span>
+        <span class="subtitle">Bipe o código EAN / GTIN abaixo:</span>
       </div>
-      <button type="button" id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar Edição</button>
+      <button type="button" id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar</button>
     </div>
 
     <form id="formProduto">
@@ -140,14 +140,14 @@
         <div>
           <label for="barcode">Código de Barras (GTIN / EAN)</label>
           <div class="input-with-btn">
-            <input id="barcode" placeholder="Bipe ou digite o EAN" required oninput="buscarProdutoPorCodigo(this.value)">
+            <input id="barcode" placeholder="Bipe ou digite o código" required oninput="buscarProdutoPorCodigo(this.value)">
             <button type="button" class="secondary icon-btn" title="Ler Código com Câmera" onclick="abrirScannerBarcode()">📷</button>
           </div>
         </div>
         
         <div>
           <label for="descricao">Descrição do Produto</label>
-          <input id="descricao" placeholder="Preenchido automaticamente pelo código" required oninput="autoDetectarSetor(this.value)">
+          <input id="descricao" placeholder="Preenchido automaticamente ao bipar" required oninput="autoDetectarSetor(this.value)">
         </div>
 
         <div>
@@ -188,7 +188,7 @@
             <option value="Cachorro">Cachorro</option>
             <option value="Gato">Gato</option>
             <option value="Ambos">Ambos</option>
-            <option value="Geral">Geral / Não se aplica</option>
+            <option value="Geral">Geral</option>
           </select>
         </div>
 
@@ -205,12 +205,12 @@
     </form>
   </section>
 
-  <!-- TABELA -->
+  <!-- TABELA DE PRODUTOS -->
   <section class="panel">
     <div class="panel-head">
       <div>
         <h3>Produtos Acompanhados</h3>
-        <div class="subtitle">Controle de validade por setor</div>
+        <div class="subtitle">Lista de controle e trocas de etiqueta</div>
       </div>
       <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
     </div>
@@ -226,7 +226,7 @@
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-      <input id="busca" style="flex:1; min-width:200px;" placeholder="Pesquisar por EAN, nome ou funcionário..." oninput="renderizar()">
+      <input id="busca" style="flex:1; min-width:200px;" placeholder="Pesquisar por código EAN, nome ou funcionário..." oninput="renderizar()">
       <select id="filtroFuncionario" style="width:180px;" onchange="renderizar()">
         <option value="">Todos os Funcionários</option>
       </select>
@@ -236,7 +236,7 @@
       <table>
         <thead>
           <tr>
-            <th>Código EAN</th>
+            <th>Código (GTIN)</th>
             <th>Produto / Peso</th>
             <th>Setor</th>
             <th>Qtd</th>
@@ -253,27 +253,10 @@
     </div>
   </section>
 
-  <div class="footer">CheckProdut · Sistema de Gestão de Validade Petcamp</div>
+  <div class="footer">CheckProdut · Petcamp Sumaré</div>
 </main>
 
-<!-- MODAL IMPORTAR PLANILHA -->
-<div class="modal" id="modalImportar">
-  <div class="modal-content">
-    <div class="modal-head">
-      <h4>Importar Relatório de Produtos (.xlsx / .csv)</h4>
-      <button type="button" class="outline icon-btn" onclick="fecharModal('modalImportar')">✕</button>
-    </div>
-    <p style="font-size:12px; color:var(--muted);">Selecione o arquivo Excel do relatório da loja (ex: <strong>Relatorio (38).xlsx</strong>). O sistema reconhecerá automaticamente a descrição e o código de barras.</p>
-    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" style="margin-bottom:15px;">
-    <div id="importStatus" style="font-size:12px; font-weight:bold; color:var(--green); margin-bottom:10px;"></div>
-    <div class="form-actions">
-      <button type="button" class="secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
-      <button type="button" class="primary" onclick="processarArquivoRelatorio()">Importar Relatório</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL SCANNER BARCODE -->
+<!-- MODAIS -->
 <div class="modal" id="modalScanner">
   <div class="modal-content">
     <div class="modal-head">
@@ -284,28 +267,27 @@
   </div>
 </div>
 
-<!-- MODAL OCR (FOTOGRAFAR VALIDADE) -->
 <div class="modal" id="modalOCR">
   <div class="modal-content">
     <div class="modal-head">
       <h4>Fotografar Validade</h4>
       <button type="button" class="outline icon-btn" onclick="fecharModalOCR()">✕</button>
     </div>
-    <p style="font-size:12px; color:var(--muted);">Posicione a data de validade dentro do enquadramento da câmera.</p>
+    <p style="font-size:12px; color:var(--muted);">Enquadre a data impressa na embalagem:</p>
     <div class="camera-box">
       <video id="videoOCR" autoplay playsinline></video>
     </div>
     <div id="ocrStatus" style="font-size:12px; margin:10px 0; font-weight:bold; color:var(--green);"></div>
     <div class="form-actions">
       <button type="button" class="secondary" onclick="fecharModalOCR()">Cancelar</button>
-      <button type="button" class="primary" onclick="capturarEProcessarOCR()">Capturar e Extrair Data</button>
+      <button type="button" class="primary" onclick="capturarEProcessarOCR()">Capturar Data</button>
     </div>
   </div>
 </div>
 
 <script>
-const CHAVE_PRODUTOS = "checkprodut_produtos_v6";
-const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v6";
+const CHAVE_PRODUTOS = "checkprodut_produtos_v7";
+const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v7";
 
 let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
@@ -319,11 +301,98 @@ function salvar() {
   atualizarListaFuncionarios();
 }
 
+// LER O RELATÓRIO OFICIAL DA LOJA (EX: Relatorio (38).xlsx)
+function carregarRelatorioLoja(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+      let count = 0;
+      catalogoBase = []; // Atualiza o catálogo base da loja
+
+      rows.forEach(row => {
+        if (!row || row.length < 5) return;
+        
+        // No relatório oficial, a Coluna index 4 (GTIN) tem o código de barras e a Coluna index 3 (Descrição) tem o nome do produto
+        let gtin = String(row[4] || row[2] || "").trim();
+        let descricao = String(row[3] || "").trim();
+
+        // Limpa códigos de barras com sufixos se houver
+        if (gtin && gtin !== "GTIN" && gtin.length >= 7) {
+          catalogoBase.push({
+            codigo: gtin,
+            codigoInterno: String(row[2] || "").trim(),
+            descricao: descricao,
+            validadeOrigem: row[8] ? String(row[8]).slice(0,10) : ""
+          });
+          count++;
+        }
+      });
+
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      alert(`🎉 Sucesso! Relatório carregado com ${count} produtos.\nAgora, ao bipar qualquer código, o nome do produto preencherá sozinho!`);
+
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao ler o arquivo da planilha. Tente selecionar o arquivo .xlsx do relatório novamente.");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// BUSCA AUTOMÁTICA DE PRODUTO AO BIPAR O CÓDIGO EAN / GTIN
+function buscarProdutoPorCodigo(codigo) {
+  const ean = codigo.trim();
+  if (!ean) return;
+
+  // Busca no catálogo do relatório importado
+  const item = catalogoBase.find(c => c.codigo === ean || c.codigoInterno === ean || ean.includes(c.codigo));
+  if (item) {
+    document.getElementById("descricao").value = item.descricao;
+    autoDetectarSetor(item.descricao);
+    
+    // Preenche a validade se constar no relatório original
+    if (item.validadeOrigem && item.validadeOrigem.includes("-")) {
+      document.getElementById("validade").value = item.validadeOrigem;
+    }
+  }
+}
+
+function autoDetectarSetor(descricao) {
+  const desc = descricao.toLowerCase();
+  const selectSetor = document.getElementById("setor");
+  const badge = document.getElementById("autoSetorBadge");
+
+  let setorDetectado = "";
+  if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal") || desc.includes("biofresh")) {
+    setorDetectado = (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata") || desc.includes("churu")) ? "Rações Úmidas" : "Rações Dry";
+  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("hydra") || desc.includes("xixi") || desc.includes("areia")) {
+    setorDetectado = "Higiene e Limpeza";
+  } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("ectocid") || desc.includes("marboxleish") || desc.includes("lactobac") || desc.includes("glicol")) {
+    setorDetectado = "Farmácia e Medicamentos";
+  } else if (desc.includes("brinquedo") || desc.includes("coleira") || desc.includes("rasqueadeira") || desc.includes("arranhador")) {
+    setorDetectado = "Acessórios e Brinquedos";
+  }
+
+  if (setorDetectado) {
+    selectSetor.value = setorDetectado;
+    badge.style.display = "inline-block";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
 function diasRestantes(dataStr) {
-  const hoje = new Date();
-  hoje.setHours(0,0,0,0);
-  const validade = new Date(dataStr + "T00:00:00");
-  return Math.ceil((validade - hoje) / (1000 * 60 * 60 * 24));
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const val = new Date(dataStr + "T00:00:00");
+  return Math.ceil((val - hoje) / 86400000);
 }
 
 function situacao(p) {
@@ -339,50 +408,8 @@ function formatarData(dataStr) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-// AUTO DETECTAR SETOR POR PALAVRAS-CHAVE
-function autoDetectarSetor(descricao) {
-  const desc = descricao.toLowerCase();
-  const selectSetor = document.getElementById("setor");
-  const badge = document.getElementById("autoSetorBadge");
-
-  let setorDetectado = "";
-
-  if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal")) {
-    setorDetectado = (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata")) ? "Rações Úmidas" : "Rações Dry";
-  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("escova")) {
-    setorDetectado = "Higiene e Limpeza";
-  } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("antipulgas") || desc.includes("remédio") || desc.includes("remedio")) {
-    setorDetectado = "Farmácia e Medicamentos";
-  } else if (desc.includes("brinquedo") || desc.includes("coleira") || desc.includes("guia") || desc.includes("arranhador")) {
-    setorDetectado = "Acessórios e Brinquedos";
-  }
-
-  if (setorDetectado) {
-    selectSetor.value = setorDetectado;
-    badge.style.display = "inline-block";
-  } else {
-    badge.style.display = "none";
-  }
-}
-
-// BUSCA AUTOMÁTICA POR CÓDIGO EAN / GTIN
-function buscarProdutoPorCodigo(codigo) {
-  const ean = codigo.trim();
-  if(!ean) return;
-
-  // Procura no catálogo importado do relatório
-  const itemCatalogo = catalogoBase.find(c => c.codigo === ean);
-  if (itemCatalogo) {
-    document.getElementById("descricao").value = itemCatalogo.descricao;
-    document.getElementById("setor").value = itemCatalogo.setor || "Outros";
-    autoDetectarSetor(itemCatalogo.descricao);
-  }
-}
-
-// FORMULÁRIO DE CADASTRO E EDIÇÃO
 document.getElementById("formProduto").addEventListener("submit", function(e) {
   e.preventDefault();
-  
   const editId = document.getElementById("editId").value;
   const p = {
     id: editId ? Number(editId) : Date.now(),
@@ -409,27 +436,6 @@ document.getElementById("formProduto").addEventListener("submit", function(e) {
   alert(editId ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
 });
 
-function editarProduto(id) {
-  const p = produtos.find(x => x.id === id);
-  if (!p) return;
-
-  document.getElementById("editId").value = p.id;
-  document.getElementById("barcode").value = p.barcode;
-  document.getElementById("descricao").value = p.descricao;
-  document.getElementById("peso").value = p.peso || "";
-  document.getElementById("setor").value = p.setor;
-  document.getElementById("quantidade").value = p.quantidade;
-  document.getElementById("validade").value = p.validade;
-  document.getElementById("especie").value = p.especie || "Cachorro";
-  document.getElementById("funcionario").value = p.funcionario;
-
-  document.getElementById("formTitle").textContent = "Editar Produto";
-  document.getElementById("btnSalvar").textContent = "Atualizar Produto";
-  document.getElementById("btnCancelarEdicao").style.display = "inline-flex";
-
-  document.getElementById("cadastro").scrollIntoView({ behavior: 'smooth' });
-}
-
 function cancelarEdicao() {
   document.getElementById("editId").value = "";
   document.getElementById("formProduto").reset();
@@ -439,43 +445,12 @@ function cancelarEdicao() {
   document.getElementById("autoSetorBadge").style.display = "none";
 }
 
-function marcarAtualizada(id) {
-  const p = produtos.find(x => x.id === id);
-  if (!p) return;
-
-  if (!p.etiquetaAtualizada) {
-    const resp = prompt("Nome do funcionário que trocou a etiqueta:", p.funcionario);
-    if (!resp) return;
-    p.etiquetaAtualizada = true;
-    p.funcionarioTroca = resp;
-  } else {
-    p.etiquetaAtualizada = false;
-    p.funcionarioTroca = null;
-  }
-  salvar();
-}
-
-function excluir(id) {
-  if (!confirm("Deseja realmente excluir este registro?")) return;
-  produtos = produtos.filter(p => p.id !== id);
-  salvar();
-}
-
-// FILTRAR POR SETOR
-function filtrarSetor(setor, el) {
-  setorFiltroAtual = setor;
-  document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
-  el.classList.add("active");
-  renderizar();
-}
-
-// RENDERIZAR TABELA
 function renderizar() {
   const busca = (document.getElementById("busca")?.value || "").toLowerCase();
   const funcFiltro = document.getElementById("filtroFuncionario")?.value || "";
 
   const filtrados = produtos.filter(p => {
-    const matchBusca = [p.barcode, p.descricao, p.setor, p.funcionario, p.funcionarioTroca].join(" ").toLowerCase().includes(busca);
+    const matchBusca = [p.barcode, p.descricao, p.setor, p.funcionario].join(" ").toLowerCase().includes(busca);
     const matchSetor = (setorFiltroAtual === "TODOS" || p.setor === setorFiltroAtual);
     const matchFunc = (!funcFiltro || p.funcionario === funcFiltro || p.funcionarioTroca === funcFiltro);
     return matchBusca && matchSetor && matchFunc;
@@ -495,24 +470,21 @@ function renderizar() {
   filtrados.forEach(p => {
     const dias = diasRestantes(p.validade);
     const s = situacao(p);
-    const statusTag = p.etiquetaAtualizada
-      ? `<span class="tag done">Etiqueta Alterada</span>`
-      : `<span class="tag ${s.classe}">${s.texto}</span>`;
+    const statusTag = p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><span class="code-badge">${escapar(p.barcode)}</span></td>
-      <td><strong>${escapar(p.descricao)}</strong><br><small style="color:var(--muted);">${escapar(p.peso || "")}</small></td>
-      <td><span class="tag setor">${escapar(p.setor)}</span></td>
+      <td><span class="code-badge">${p.barcode}</span></td>
+      <td><strong>${p.descricao}</strong><br><small style="color:var(--muted);">${p.peso || ""}</small></td>
+      <td><span class="tag setor">${p.setor}</span></td>
       <td><strong>${p.quantidade}</strong></td>
       <td>${formatarData(p.validade)}</td>
       <td>${dias < 0 ? `<strong style="color:var(--red);">Vencido</strong>` : `${dias} dias`}</td>
       <td>${statusTag}</td>
-      <td><small>${escapar(p.funcionario)}${p.funcionarioTroca ? `<br><b style="color:var(--green);">Troca: ${escapar(p.funcionarioTroca)}</b>` : ''}</small></td>
+      <td><small>${p.funcionario}${p.funcionarioTroca ? `<br><b style="color:var(--green);">Troca: ${p.funcionarioTroca}</b>` : ''}</small></td>
       <td>
         <div class="actions">
           <button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Troca"}</button>
-          <button type="button" class="outline" onclick="editarProduto(${p.id})">Editar</button>
           <button type="button" class="danger" onclick="excluir(${p.id})">✕</button>
         </div>
       </td>
@@ -521,323 +493,154 @@ function renderizar() {
   });
 }
 
+function marcarAtualizada(id) {
+  const p = produtos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.etiquetaAtualizada) {
+    const resp = prompt("Nome do funcionário que trocou a etiqueta:", p.funcionario);
+    if (!resp) return;
+    p.etiquetaAtualizada = true;
+    p.funcionarioTroca = resp;
+  } else {
+    p.etiquetaAtualizada = false;
+    p.funcionarioTroca = null;
+  }
+  salvar();
+}
+
+function excluir(id) {
+  if (!confirm("Deseja excluir este item?")) return;
+  produtos = produtos.filter(p => p.id !== id);
+  salvar();
+}
+
+function filtrarSetor(setor, el) {
+  setorFiltroAtual = setor;
+  document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  renderizar();
+}
+
 function atualizarListaFuncionarios() {
   const select = document.getElementById("filtroFuncionario");
   const funcSet = new Set();
-  produtos.forEach(p => {
-    if(p.funcionario) funcSet.add(p.funcionario);
-    if(p.funcionarioTroca) funcSet.add(p.funcionarioTroca);
-  });
-
-  const atual = select.value;
+  produtos.forEach(p => { if(p.funcionario) funcSet.add(p.funcionario); });
   select.innerHTML = '<option value="">Todos os Funcionários</option>';
   funcSet.forEach(f => {
-    const opt = document.createElement("option");
-    opt.value = f;
-    opt.textContent = f;
-    select.appendChild(opt);
+    const opt = document.createElement("option"); opt.value = f; opt.textContent = f; select.appendChild(opt);
   });
-  select.value = atual;
 }
 
-function escapar(v) {
-  return String(v || "").replace(/[&<>"']/g, c => ({
-    "&":"&","<":"<",">":">",'"':""","'":"'"
-  }[c]));
-}
-
-// PROCESSAR O RELATÓRIO EXCEL DA LOJA (EX: Relatorio (38).xlsx)
-function abrirModalImportacao() {
-  document.getElementById("modalImportar").style.display = "flex";
-  document.getElementById("importStatus").textContent = "";
-}
-
-function fecharModal(id) {
-  document.getElementById(id).style.display = "none";
-}
-
-function processarArquivoRelatorio() {
-  const fileInput = document.getElementById("excelFile");
-  const statusDiv = document.getElementById("importStatus");
-  if (!fileInput.files.length) {
-    alert("Selecione um arquivo .xlsx ou .csv.");
-    return;
-  }
-
-  const file = fileInput.files[0];
-  statusDiv.textContent = "Lendo arquivo do relatório...";
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      
-      // Converte para JSON com linhas brutas para varredura inteligente
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
-      let count = 0;
-      catalogoBase = []; // Limpa e atualiza
-
-      // Varre as linhas procurando onde começa a tabela do relatório
-      rows.forEach((row) => {
-        if (!row || row.length < 4) return;
-        
-        // No relatório exportado, o código de barras (GTIN) costuma estar na 4ª ou 5ª coluna e a descrição na 3ª
-        // Vamos verificar células que parecem códigos de barras (números grandes) e descrições de texto
-        for (let i = 0; i < row.length; i++) {
-          let val = String(row[i] || "").trim();
-          // GTIN / Código de barras geralmente tem entre 8 e 14 dígitos numéricos
-          if (/^\d{8,14}$/.test(val)) {
-            // Procura uma coluna adjacente que seja texto descritivo
-            let descricao = "";
-            for (let j = 0; j < row.length; j++) {
-              let textCandidate = String(row[j] || "").trim();
-              if (textCandidate.length > 3 && !/^\d+$/.test(textCandidate)) {
-                descricao = textCandidate;
-                break;
-              }
-            }
-
-            if (descricao) {
-              catalogoBase.push({
-                codigo: val,
-                descricao: descricao,
-                setor: "Outros"
-              });
-              count++;
-              break;
-            }
-          }
-        }
-      });
-
-      if (count === 0) {
-        // Fallback: se não encontrou pelo formato de GTIN, tenta pegar colunas genéricas (Ex: Coluna 2 = Descrição, Coluna 3 = GTIN)
-        rows.forEach((row, idx) => {
-          if (idx < 26 || !row || row.length < 4) return; // Pula cabeçalhos institucionais
-          let desc = String(row[3] || row[2] || "").trim();
-          let cod = String(row[4] || row[3] || "").trim();
-          if (cod && desc && cod.length > 3) {
-            catalogoBase.push({ codigo: cod, descricao: desc, setor: "Outros" });
-            count++;
-          }
-        });
-      }
-
-      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
-      statusDiv.textContent = `Sucesso! ${count} produtos carregados do relatório da loja.`;
-      setTimeout(() => {
-        fecharModal("modalImportar");
-        alert(`${count} produtos importados com sucesso! Agora ao bipar o código, a descrição preencherá sozinha.`);
-      }, 1000);
-
-    } catch (err) {
-      console.error(err);
-      statusDiv.textContent = "Erro ao processar planilha. Verifique o formato.";
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// FUNÇÃO ASYNC ABRIR MODAL OCR (CÂMERA)
+// CÂMERA OCR
 async function abrirModalOCR() {
     const modal = document.getElementById("modalOCR");
     const video = document.getElementById("videoOCR");
     const status = document.getElementById("ocrStatus");
-
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("A câmera não está disponível. Abra o CheckProdut pelo endereço HTTPS.");
+        alert("Abra o site pelo link HTTPS para liberar a câmera.");
         return;
     }
-
     try {
-        status.textContent = "Solicitando acesso à câmera...";
+        status.textContent = "Abrindo câmera...";
         modal.style.display = "flex";
-
-        if (streamVideoOCR) {
-            streamVideoOCR.getTracks().forEach(track => track.stop());
-        }
-
-        streamVideoOCR = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
-        });
-
+        if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
+        streamVideoOCR = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
         video.srcObject = streamVideoOCR;
         await video.play();
-        status.textContent = "Câmera aberta! Posicione a validade na imagem.";
-
+        status.textContent = "Câmera pronta! Posicione a validade na imagem.";
     } catch (erro) {
-        console.error("Erro ao abrir câmera:", erro);
-        status.textContent = "Não foi possível abrir a câmera.";
-        alert("Verifique as permissões de câmera do navegador.");
+        alert("Erro ao abrir a câmera: " + erro.message);
     }
 }
 
 function fecharModalOCR() {
-  if (streamVideoOCR) {
-    streamVideoOCR.getTracks().forEach(track => track.stop());
-  }
-  fecharModal("modalOCR");
+  if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
+  document.getElementById("modalOCR").style.display = "none";
 }
 
 function capturarEProcessarOCR() {
   const video = document.getElementById("videoOCR");
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0);
-
-  document.getElementById("ocrStatus").textContent = "Lendo texto da imagem...";
-
-  Tesseract.recognize(canvas, 'por', { logger: m => console.log(m) })
-    .then(({ data: { text } }) => {
-      const dataExtraida = converterTextoParaData(text);
-      if (dataExtraida) {
-        document.getElementById("validade").value = dataExtraida;
-        alert("Validade lida com sucesso!");
-        fecharModalOCR();
-      } else {
-        document.getElementById("ocrStatus").textContent = `Lido: "${text.trim()}". Não identificamos uma data. Tente novamente.`;
-      }
-    });
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  document.getElementById("ocrStatus").textContent = "Processando imagem...";
+  Tesseract.recognize(canvas, 'por').then(({ data: { text } }) => {
+    const dataExt = converterTextoParaData(text);
+    if (dataExt) {
+      document.getElementById("validade").value = dataExt;
+      alert("Validade reconhecida com sucesso!");
+      fecharModalOCR();
+    } else {
+      document.getElementById("ocrStatus").textContent = "Data não identificada. Tente aproximar a câmera.";
+    }
+  });
 }
 
-// RECONHECIMENTO DE VOZ (MICROFONE)
+// MICROFONE DE VOZ
 function iniciarLeituraVoz() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert("Reconhecimento de voz não é suportado neste navegador. Use o Google Chrome.");
-    return;
-  }
-
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'pt-BR';
-  recognition.interimResults = false;
-
-  alert("Fale a data de validade (Exemplo: '15 de novembro de 2026').");
-  recognition.start();
-
-  recognition.onresult = function(event) {
-    const texto = event.results[0][0].transcript;
-    const dataConvertida = converterTextoParaData(texto);
-    if (dataConvertida) {
-      document.getElementById("validade").value = dataConvertida;
-      alert(`Validade reconhecida: ${formatarData(dataConvertida)}`);
-    } else {
-      alert(`Transcrição: "${texto}". Não foi possível formatar a data automaticamente.`);
-    }
+  if (!SpeechRecognition) { alert("Use o navegador Google Chrome no Android para voz."); return; }
+  const rec = new SpeechRecognition();
+  rec.lang = 'pt-BR';
+  alert("Fale a validade (Ex: 15 de novembro de 2026)");
+  rec.start();
+  rec.onresult = function(e) {
+    const t = e.results[0][0].transcript;
+    const d = converterTextoParaData(t);
+    if (d) { document.getElementById("validade").value = d; alert("Validade preenchida!"); }
+    else { alert("Voz capturada: " + t); }
   };
 }
 
 function converterTextoParaData(texto) {
-  const meses = {
-    'janeiro':'01','fevereiro':'02','março':'03','marco':'03','abril':'04','maio':'05','junho':'06',
-    'julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'
-  };
-
+  const meses = {'janeiro':'01','fevereiro':'02','março':'03','marco':'03','abril':'04','maio':'05','junho':'06','julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'};
   const t = texto.toLowerCase();
-  const regexNum = /(\d{1,2})[\/\s\.-](\d{1,2})[\/\s\.-](\d{2,4})/;
-  const matchNum = t.match(regexNum);
-  if (matchNum) {
-    let dia = matchNum[1].padStart(2, '0');
-    let mes = matchNum[2].padStart(2, '0');
-    let ano = matchNum[3].length === 2 ? "20" + matchNum[3] : matchNum[3];
-    return `${ano}-${mes}-${dia}`;
-  }
-
-  for (let key in meses) {
-    if (t.includes(key)) {
-      const matchDia = t.match(/(\d{1,2})/);
-      const matchAno = t.match(/(20\d{2})/);
-      if (matchDia && matchAno) {
-        let dia = matchDia[1].padStart(2, '0');
-        let mes = meses[key];
-        let ano = matchAno[1];
-        return `${ano}-${mes}-${dia}`;
-      }
+  const mNum = t.match(/(\d{1,2})[\/\s\.-](\d{1,2})[\/\s\.-](\d{2,4})/);
+  if (mNum) return `${mNum[3].length===2?'20'+mNum[3]:mNum[3]}-${mNum[2].padStart(2,'0')}-${mNum[1].padStart(2,'0')}`;
+  for (let k in meses) {
+    if (t.includes(k)) {
+      const dM = t.match(/(\d{1,2})/); const aM = t.match(/(20\d{2})/);
+      if (dM && aM) return `${aM[1]}-${meses[k]}-${dM[1].padStart(2,'0')}`;
     }
   }
   return null;
 }
 
-// CÂMERA SCANNER BARCODE
+// CÂMERA SCANNER
 function abrirScannerBarcode() {
   document.getElementById("modalScanner").style.display = "flex";
   html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
-  html5QrcodeScanner.render((decodedText) => {
-    document.getElementById("barcode").value = decodedText;
-    buscarProdutoPorCodigo(decodedText);
+  html5QrcodeScanner.render((txt) => {
+    document.getElementById("barcode").value = txt;
+    buscarProdutoPorCodigo(txt);
     fecharScannerBarcode();
   });
 }
 
 function fecharScannerBarcode() {
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.clear().catch(e => console.log(e));
-  }
-  fecharModal("modalScanner");
+  if (html5QrcodeScanner) html5QrcodeScanner.clear().catch(e=>{});
+  document.getElementById("modalScanner").style.display = "none";
 }
 
 function exportarCSV() {
-  if (!produtos.length) {
-    alert("Não existem produtos para exportar.");
-    return;
-  }
-
-  const linhas = [["Código EAN", "Produto", "Peso", "Setor", "Quantidade", "Validade", "Dias Restantes", "Situação", "Cadastrado Por", "Trocou Etiqueta"]];
+  if (!produtos.length) { alert("Sem dados para exportar."); return; }
+  let csv = "\uFEFFGTIN;Produto;Peso;Setor;Qtd;Validade;Dias;Situação;Responsável\n";
   produtos.forEach(p => {
-    linhas.push([
-      p.barcode,
-      p.descricao,
-      p.peso,
-      p.setor,
-      p.quantidade,
-      formatarData(p.validade),
-      diasRestantes(p.validade),
-      situacao(p).texto,
-      p.funcionario,
-      p.funcionarioTroca || "Pendente"
-    ]);
+    csv += `"${p.barcode}";"${p.descricao}";"${p.peso}";"${p.setor}";${p.quantidade};"${formatarData(p.validade)}";${diasRestantes(p.validade)};"${situacao(p).texto}";"${p.funcionario}"\n`;
   });
-
-  const csv = "\uFEFF" + linhas.map(l => l.map(v => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = `CheckProdut_Validades_${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = URL.createObjectURL(blob);
+  a.download = `Validades_Petcamp_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
-  URL.revokeObjectURL(url);
 }
 
 function carregarDadosExemplo() {
-  const hoje = new Date();
-  const d90 = new Date(hoje.getTime() + 60*86400000).toISOString().slice(0,10);
-  produtos.push({
-    id: Date.now(),
-    barcode: "7898348033599",
-    descricao: "ALIMENTO JABUTI MIX ZOOTEKNA 60GR",
-    peso: "60g",
-    setor: "Outros",
-    quantidade: 2,
-    validade: d90,
-    especie: "Geral",
-    funcionario: "Jeisa",
-    etiquetaAtualizada: false
-  });
+  const d = new Date(Date.now() + 60*86400000).toISOString().slice(0,10);
+  produtos.push({ id: Date.now(), barcode: "7898348033599", descricao: "ALIMENTO JABUTI MIX ZOOTEKNA 60GR", peso: "60g", setor: "Outros", quantidade: 1, validade: d, especie: "Geral", funcionario: "Jeisa", etiquetaAtualizada: false });
   salvar();
 }
 
-// INICIALIZAÇÃO
 renderizar();
 atualizarListaFuncionarios();
 </script>
