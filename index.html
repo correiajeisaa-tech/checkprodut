@@ -747,17 +747,39 @@ function autoDetectarSetor(descricao) {
 }
 
 function interpretarDataValidade(dataStr) {
-  if (!dataStr) return null;
+  if (dataStr === null || dataStr === undefined || dataStr === "") return null;
+
+  // Aceita Date, timestamp do Firestore/JavaScript e serial de data do Excel.
+  if (dataStr instanceof Date && !isNaN(dataStr.getTime())) {
+    const d = new Date(dataStr.getFullYear(), dataStr.getMonth(), dataStr.getDate());
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  if (typeof dataStr === "number" && Number.isFinite(dataStr)) {
+    if (dataStr > 20000 && dataStr < 80000) {
+      const excel = new Date(Date.UTC(1899, 11, 30) + dataStr * 86400000);
+      return new Date(excel.getUTCFullYear(), excel.getUTCMonth(), excel.getUTCDate());
+    }
+    if (dataStr > 100000000000) dataStr = new Date(dataStr);
+    else if (dataStr > 1000000000) dataStr = new Date(dataStr * 1000);
+  }
+  if (dataStr && typeof dataStr === "object" && typeof dataStr.toDate === "function") {
+    dataStr = dataStr.toDate();
+    return interpretarDataValidade(dataStr);
+  }
+
   const valor = String(dataStr).trim();
   let ano, mes, dia;
-  let partes = valor.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/);
+  let partes = valor.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/);
   if (partes) {
     ano = Number(partes[1]); mes = Number(partes[2]); dia = Number(partes[3]);
   } else {
-    partes = valor.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})$/);
+    partes = valor.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/);
     if (!partes) return null;
     dia = Number(partes[1]); mes = Number(partes[2]); ano = Number(partes[3]);
+    if (ano < 100) ano += ano < 50 ? 2000 : 1900;
   }
+  if (ano < 2000 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
   const data = new Date(ano, mes - 1, dia);
   if (data.getFullYear() !== ano || data.getMonth() !== mes - 1 || data.getDate() !== dia) return null;
   data.setHours(0,0,0,0);
@@ -781,9 +803,9 @@ function situacao(p) {
 }
 
 function formatarData(dataStr) {
-  if(!dataStr) return "—";
-  const parts = dataStr.split("-");
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  const data = interpretarDataValidade(dataStr);
+  if (!data) return "—";
+  return data.toLocaleDateString("pt-BR");
 }
 
 document.getElementById("formProduto").addEventListener("submit", function(e) {
@@ -816,13 +838,13 @@ document.getElementById("formProduto").addEventListener("submit", function(e) {
   const descricaoProduto = String(p.descricao || "").trim();
   if (gtin && descricaoProduto && descricaoAusente(descricaoProduto) === false) {
     const registrosDoCodigo = catalogoBase.filter(item => String(item.codigo || "").trim() === gtin);
-    const pendentes = registrosDoCodigo.filter(item => descricaoAusente(item.descricao));
-    if (pendentes.length) {
-      pendentes.forEach(item => {
-        item.descricao = descricaoProduto;
-        item.origemDescricao = "cadastro da loja";
-      });
-    } else if (!registrosDoCodigo.length) {
+    const registroPrincipal = registrosDoCodigo[0];
+    if (registroPrincipal) {
+      // A descrição revisada pelo funcionário passa a ser a referência do catálogo.
+      registroPrincipal.descricao = descricaoProduto;
+      registroPrincipal.origemDescricao = "revisada no cadastro";
+      if (p.validade) registroPrincipal.validadeOrigem = p.validade;
+    } else {
       catalogoBase.push({
         codigo: gtin,
         descricao: descricaoProduto,
@@ -830,7 +852,7 @@ document.getElementById("formProduto").addEventListener("submit", function(e) {
         origemDescricao: "cadastro da loja"
       });
     }
-    if (pendentes.length || !registrosDoCodigo.length) {
+    if (true) {
       localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
       window.CheckProdutCloud?.saveCatalog(catalogoBase);
       atualizarContadorBanco();
@@ -872,7 +894,7 @@ function renderizar() {
   tbody.innerHTML = "";
   document.getElementById("vazio").style.display = filtrados.length ? "none" : "block";
 
-  filtrados.sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
+  filtrados.sort((a,b) => (diasRestantes(a.validade) ?? 99999) - (diasRestantes(b.validade) ?? 99999));
 
   filtrados.forEach(p => {
     const dias = diasRestantes(p.validade);
