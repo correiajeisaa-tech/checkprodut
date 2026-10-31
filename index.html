@@ -406,13 +406,39 @@ function carregarRelatorioLoja(event) {
         return;
       }
 
-      catalogoBase = novoCatalogo;
-      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
-      
-      // Atualiza o contador no botão do header
-      atualizarContadorBanco();
-      alert(`🎉 Sucesso! Catálogo carregado com ${count} produtos.\nAgora as descrições e validades aparecerão automaticamente ao bipar.`);
+      // IMPORTAÇÃO ACUMULATIVA: mantém tudo que já estava salvo e acrescenta
+      // os novos registros. Só evita duplicar uma linha exatamente igual
+      // (mesmo GTIN, descrição e validade); validades diferentes são preservadas.
+      const chaveRegistro = item => [
+        String(item.codigo || "").trim(),
+        String(item.descricao || "").trim().toLowerCase(),
+        String(item.validadeOrigem || "").trim()
+      ].join("|");
 
+      const chavesExistentes = new Set(catalogoBase.map(chaveRegistro));
+      let adicionados = 0;
+      let repetidos = 0;
+
+      novoCatalogo.forEach(item => {
+        const chave = chaveRegistro(item);
+        if (chavesExistentes.has(chave)) {
+          repetidos++;
+          return;
+        }
+        catalogoBase.push(item);
+        chavesExistentes.add(chave);
+        adicionados++;
+      });
+
+      // Salva a soma do catálogo anterior com os registros novos.
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+
+      atualizarContadorBanco();
+      renderizarTabelaBanco();
+      alert(`🎉 Importação concluída!\n\nNovos registros adicionados: ${adicionados}\nRegistros já existentes ignorados: ${repetidos}\nTotal acumulado no banco: ${catalogoBase.length}\n\nOs arquivos anteriores foram mantidos.`);
+
+      // Permite selecionar novamente o mesmo arquivo se necessário.
+      event.target.value = "";
     } catch (err) {
       console.error(err);
       alert("Erro ao ler o arquivo Excel. Verifique se o arquivo está corrompido.");
