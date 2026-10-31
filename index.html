@@ -373,140 +373,95 @@ function salvar() {
   atualizarListaFuncionarios();
 }
 
-// LER O RELATÓRIO OFICIAL DA LOJA POR CABEÇALHO (INTELIGENTE)
+// IMPORTAÇÃO ROBUSTA: percorre TODAS as abas e nunca presume a coluna de validade.
 function carregarRelatorioLoja(event) {
   const file = event.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: "" });
-
-      if (!rows || rows.length === 0) {
-        alert("A planilha está vazia!");
-        return;
-      }
-
-      // Descobre a linha do cabeçalho automaticamente
-      let headerIdx = 0;
-      let colGtin = -1, colDesc = -1, colVal = -1;
-
-      const normalizarCabecalho = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-      for (let i = 0; i < Math.min(rows.length, 15); i++) {
-        const headers = rows[i] || [];
-        const nomes = headers.map(normalizarCabecalho);
-        const temGtin = nomes.some(h => /gtin|ean|codigo.*(barra|produto)?|barras/.test(h));
-        const temDescricao = nomes.some(h => /produto|descri|item/.test(h));
-        if (temGtin && temDescricao) {
-          headerIdx = i;
-          // Prioriza GTIN/EAN/código de barras; evita confundir com código interno.
-          const indiceGtin = nomes.findIndex(h => /gtin|ean|codigo.*barra|barras/.test(h));
-          const indiceCodigo = nomes.findIndex(h => /^codigo$|codigo do produto|cod\. produto/.test(h));
-          colGtin = indiceGtin >= 0 ? indiceGtin : indiceCodigo;
-          colDesc = nomes.findIndex(h => /descricao|produto|item/.test(h));
-          colVal = nomes.findIndex(h => /validade|vencimento/.test(h));
-          break;
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: "array", cellDates: true });
+      let linhasLidas = 0, comCodigo = 0, comDescricao = 0, comValidade = 0;
+      let semCodigo = 0, semValidade = 0, cabecalhosNaoIdentificados = [];
+      const novosCatalogo = [], novosAcompanhamentos = [];
+      const norm = v => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9 ]/g, " ");
+      const codigoLimpo = v => String(v ?? "").trim().replace(/\.0$/, "").replace(/\s+/g, "").replace(/[^0-9]/g, "");
+      for (const nomeAba of workbook.SheetNames) {
+        const sheet = workbook.Sheets[nomeAba];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
+        if (!rows.length) continue;
+        let headerIdx = -1, colGtin = -1, colDesc = -1, colVal = -1;
+        for (let i = 0; i < Math.min(rows.length, 25); i++) {
+          const hs = (rows[i] || []).map(norm);
+          const gi = hs.findIndex(h => /gtin|ean|codigo de barras|cod barra|cod barras|barras/.test(h));
+          const di = hs.findIndex(h => /descricao|descr produto|nome produto|produto|item/.test(h));
+          const vi = hs.findIndex(h => /validade|vencimento|data de venc|dt venc/.test(h));
+          if (gi >= 0 && di >= 0) { headerIdx=i; colGtin=gi; colDesc=di; colVal=vi; break; }
+        }
+        // Compatibilidade com o relatório antigo: código na coluna E e descrição na D.
+        if (headerIdx < 0) {
+          for (let i=0;i<Math.min(rows.length,25);i++) {
+            const row=rows[i]||[];
+            if (row.length >= 5 && row.some(v => /produto|descri/i.test(String(v))) ) {
+              headerIdx=i; colGtin=4; colDesc=3;
+              const hs=row.map(norm);
+              colVal=hs.findIndex(h => /validade|vencimento/.test(h));
+              break;
+            }
+          }
+        }
+        if (headerIdx < 0 || colGtin < 0 || colDesc < 0) {
+          cabecalhosNaoIdentificados.push(nomeAba);
+          continue;
+        }
+        for (let i=headerIdx+1;i<rows.length;i++) {
+          const row=rows[i]||[];
+          if (!row.some(v => String(v ?? "").trim() !== "")) continue;
+          linhasLidas++;
+          const gtin=codigoLimpo(row[colGtin]);
+          const descricao=String(row[colDesc] ?? "").trim();
+          if (!gtin || gtin.length < 4) { semCodigo++; continue; }
+          comCodigo++;
+          if (descricao && !descricaoAusente(descricao)) comDescricao++;
+          const dataValidade = colVal >= 0 ? interpretarDataValidade(row[colVal]) : null;
+          const validade = dataValidade ? [dataValidade.getFullYear(),String(dataValidade.getMonth()+1).padStart(2,"0"),String(dataValidade.getDate()).padStart(2,"0")].join("-") : "";
+          const descFinal = descricao || "Produto sem descrição";
+          novosCatalogo.push({codigo:gtin,descricao:descFinal,validadeOrigem:validade});
+          if (validade) { comValidade++; novosAcompanhamentos.push({barcode:gtin,descricao:descFinal,validade}); }
+          else semValidade++;
         }
       }
-
-      // Se não achar pelo cabeçalho, usa os índices padrão comuns
-      if (colGtin === -1) colGtin = 4;
-      if (colDesc === -1) colDesc = 3;
-      if (colVal === -1) colVal = 8;
-
-      let count = 0;
-      const novoCatalogo = [];
-      const novosAcompanhamentos = [];
-      for (let i = headerIdx + 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || !row.length) continue;
-        const gtin = String(row[colGtin] ?? "").trim().replace(/\.0$/, "").replace(/\s+/g, "").replace(/[^0-9]/g, "");
-        const descricao = String(row[colDesc] ?? "").trim();
-        const dataValidade = interpretarDataValidade(row[colVal]);
-        const validade = dataValidade
-          ? [dataValidade.getFullYear(), String(dataValidade.getMonth()+1).padStart(2,"0"), String(dataValidade.getDate()).padStart(2,"0")].join("-")
-          : "";
-        if (!gtin || gtin.toLowerCase() === "gtin" || gtin.length < 4) continue;
-        novoCatalogo.push({ codigo: gtin, descricao: descricao || "Produto sem descrição", validadeOrigem: validade });
-        if (validade) novosAcompanhamentos.push({ barcode: gtin, descricao: descricao || "Produto sem descrição", validade });
-        count++;
+      if (!comCodigo) {
+        alert("Não encontrei linhas com código de barras. Abas analisadas: "+workbook.SheetNames.join(", ")+". Abas sem cabeçalho reconhecido: "+cabecalhosNaoIdentificados.join(", "));
+        event.target.value=""; return;
       }
-
-      if (count === 0) {
-        alert("Nenhum produto válido encontrado. Verifique se a planilha possui as colunas de GTIN e Descrição.");
-        return;
+      const chaveCatalogo = x => [String(x.codigo||"").trim(),String(x.descricao||"").trim().toLowerCase(),String(x.validadeOrigem||"").trim()].join("|");
+      const existentes = new Set(catalogoBase.map(chaveCatalogo));
+      let adicionados=0,repetidos=0,descricoesAtualizadas=0;
+      for (const item of novosCatalogo) {
+        const key=chaveCatalogo(item);
+        if (existentes.has(key)) { repetidos++; continue; }
+        // Se já existe a mesma combinação código+validade sem descrição, substitui pela descrição encontrada.
+        const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo && String(x.validadeOrigem||"")===item.validadeOrigem && descricaoAusente(x.descricao||"") && !descricaoAusente(item.descricao));
+        if (pendente) { pendente.descricao=item.descricao; descricoesAtualizadas++; existentes.add(key); continue; }
+        catalogoBase.push(item); existentes.add(key); adicionados++;
       }
-
-      // IMPORTAÇÃO ACUMULATIVA: mantém tudo que já estava salvo e acrescenta
-      // os novos registros. Só evita duplicar uma linha exatamente igual
-      // (mesmo GTIN, descrição e validade); validades diferentes são preservadas.
-      const chaveRegistro = item => [
-        String(item.codigo || "").trim(),
-        String(item.descricao || "").trim().toLowerCase(),
-        String(item.validadeOrigem || "").trim()
-      ].join("|");
-
-      const chavesExistentes = new Set(catalogoBase.map(chaveRegistro));
-      let adicionados = 0;
-      let repetidos = 0;
-
-      novoCatalogo.forEach(item => {
-        const chave = chaveRegistro(item);
-        if (chavesExistentes.has(chave)) {
-          repetidos++;
-          return;
-        }
-        catalogoBase.push(item);
-        chavesExistentes.add(chave);
-        adicionados++;
-      });
-
-      // Envia as linhas com validade para o painel de acompanhamento.
-      let acompanhamentosNovos = 0;
-      novosAcompanhamentos.forEach(item => {
-        const jaExiste = produtos.some(p =>
-          String(p.barcode || "").replace(/\s+/g, "").replace(/[^0-9]/g, "") === item.barcode &&
-          interpretarDataValidade(p.validade)?.getTime() === interpretarDataValidade(item.validade)?.getTime() &&
-          String(p.descricao || "").trim().toLowerCase() === item.descricao.trim().toLowerCase()
-        );
-        if (!jaExiste) {
-          produtos.push({
-            id: Date.now() + acompanhamentosNovos,
-            barcode: item.barcode,
-            descricao: item.descricao,
-            peso: "",
-            setor: "Outros",
-            quantidade: 1,
-            validade: item.validade,
-            especie: "Geral",
-            funcionario: "Importação do relatório",
-            etiquetaAtualizada: false,
-            origemImportacao: true
-          });
-          acompanhamentosNovos++;
-        }
-      });
-      if (acompanhamentosNovos) salvar();
-
-      // Salva a soma do catálogo anterior com os registros novos.
-      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      let acompanhamentosNovos=0;
+      const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
+      for (const item of novosAcompanhamentos) {
+        const key=[item.barcode,interpretarDataValidade(item.validade)?.getTime()||"",item.descricao.trim().toLowerCase()].join("|");
+        if(chavesProdutos.has(key)) continue;
+        produtos.push({id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:1,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true});
+        chavesProdutos.add(key); acompanhamentosNovos++;
+      }
+      localStorage.setItem(CHAVE_BASE_CATALOGO,JSON.stringify(catalogoBase));
       window.CheckProdutCloud?.saveCatalog(catalogoBase);
-
+      if(acompanhamentosNovos || produtos.length) salvar();
       atualizarContadorBanco();
       renderizarTabelaBanco();
-      const datasInvalidas = count - novosAcompanhamentos.length;
-      alert(`Importação concluída!\n\nLinhas com código: ${count}\nNovos registros no catálogo: ${adicionados}\nRegistros repetidos: ${repetidos}\nLinhas com validade reconhecida: ${novosAcompanhamentos.length}\nNovos produtos no acompanhamento: ${acompanhamentosNovos}\nLinhas sem validade reconhecida: ${datasInvalidas}\nTotal acumulado no banco: ${catalogoBase.length}\n\nConfira os totais antes de fechar esta mensagem.`);
-
-      // Permite selecionar novamente o mesmo arquivo se necessário.
-      event.target.value = "";
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao ler o arquivo Excel. Verifique se o arquivo está corrompido.");
-    }
+      alert("Importação concluída (todas as abas)\n\nAbas analisadas: "+workbook.SheetNames.length+"\nLinhas lidas: "+linhasLidas+"\nLinhas com código: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nCom validade reconhecida: "+comValidade+"\nNovos itens em 15%/30%: "+acompanhamentosNovos+"\nSem validade reconhecida: "+semValidade+"\nSem código: "+semCodigo+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length+(cabecalhosNaoIdentificados.length?"\nAbas ignoradas por cabeçalho: "+cabecalhosNaoIdentificados.join(", "):""));
+      event.target.value="";
+    } catch(err) { console.error(err); alert("Erro ao importar planilha: "+(err?.message||err)); }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -1365,9 +1320,12 @@ async function startCloud(user) {
 window.CheckProdutCloud = {
   saveProducts: async rows => {
     if(!ready) return;
-    const batch=writeBatch(db);
-    rows.forEach(item=>batch.set(doc(db,"checkprodut_produtos",String(item.id)),item));
-    await batch.commit();
+    // Firestore limita cada WriteBatch a 500 operações.
+    for(let inicio=0;inicio<rows.length;inicio+=400) {
+      const batch=writeBatch(db);
+      rows.slice(inicio,inicio+400).forEach(item=>batch.set(doc(db,"checkprodut_produtos",String(item.id)),item));
+      await batch.commit();
+    }
   },
   saveCatalog: async rows => {
     if(!ready) return;
