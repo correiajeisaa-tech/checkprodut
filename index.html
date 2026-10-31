@@ -763,6 +763,35 @@ document.getElementById("formProduto").addEventListener("submit", function(e) {
     produtos.push(p);
   }
 
+  // Todo cadastro com GTIN e descrição válida alimenta o catálogo compartilhado.
+  // Se o código já existir sem descrição, completa os registros pendentes;
+  // se ainda não existir, cria uma entrada para consultas futuras.
+  const gtin = String(p.barcode || "").trim();
+  const descricaoProduto = String(p.descricao || "").trim();
+  if (gtin && descricaoProduto && descricaoAusente(descricaoProduto) === false) {
+    const registrosDoCodigo = catalogoBase.filter(item => String(item.codigo || "").trim() === gtin);
+    const pendentes = registrosDoCodigo.filter(item => descricaoAusente(item.descricao));
+    if (pendentes.length) {
+      pendentes.forEach(item => {
+        item.descricao = descricaoProduto;
+        item.origemDescricao = "cadastro da loja";
+      });
+    } else if (!registrosDoCodigo.length) {
+      catalogoBase.push({
+        codigo: gtin,
+        descricao: descricaoProduto,
+        validadeOrigem: p.validade || "",
+        origemDescricao: "cadastro da loja"
+      });
+    }
+    if (pendentes.length || !registrosDoCodigo.length) {
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      window.CheckProdutCloud?.saveCatalog(catalogoBase);
+      atualizarContadorBanco();
+      renderizarTabelaBanco();
+    }
+  }
+
   salvar();
   cancelarEdicao();
   alert(editId ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
