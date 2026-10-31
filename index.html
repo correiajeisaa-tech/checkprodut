@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07152f">
+  <meta name="description" content="CheckProdut — controle inteligente de validade, produtos e alertas de vencimento.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230b1b3b'/%3E%3Cpath d='M13 17v30M19 17v30M25 17v30M33 17v30M39 17v30M45 17v30M51 17v30' stroke='%2300d4ff' stroke-width='3'/%3E%3Cpath d='m31 35 7 7 14-16' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <title>CheckProdut | Controle Inteligente de Validade</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -10,19 +13,45 @@
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     :root {
-      --green:#173d32;
-      --green2:#245846;
-      --lime:#b8d86a;
-      --bg:#f4f6f3;
+      --green:#0b1b3b;
+      --green2:#12356b;
+      --lime:#00d4ff;
+      --bg:#f2f6fc;
       --white:#ffffff;
-      --text:#24332d;
-      --muted:#66756e;
-      --border:#dce3de;
-      --red:#c94b4b;
-      --orange:#d18a32;
-      --blue:#2b6cb0;
+      --text:#17243b;
+      --muted:#68778f;
+      --border:#dce5f1;
+      --red:#d9364f;
+      --orange:#d98a20;
+      --blue:#087fce;
+      --cyan:#00bfe9;
     }
     * { box-sizing: border-box; }
+    body { background:linear-gradient(180deg,#edf4fc 0,#f7f9fd 260px); }
+    header { background:linear-gradient(115deg,#07152f 0%,#102d5d 68%,#075b91 100%); padding:18px 5%; box-shadow:0 8px 28px #07152f24; border-bottom:3px solid #00c9f2; }
+    .brand { gap:13px; }
+    .logo { width:48px; height:48px; border-radius:14px; background:linear-gradient(145deg,#00d4ff,#087fce); color:white; box-shadow:0 5px 18px #00bfe955; display:grid; place-items:center; overflow:hidden; }
+    .logo svg { width:34px; height:34px; display:block; }
+    .brand h1 { font-size:22px; letter-spacing:-.6px; }
+    .brand h1 span { color:#00d4ff; }
+    .brand small { color:#c6e8ff; letter-spacing:1.35px; }
+    main { max-width:1280px; margin:26px auto; }
+    h2 { color:#0b1b3b; letter-spacing:-.5px; }
+    .card,.panel { border-color:#dce5f1; box-shadow:0 5px 18px #17365d0a; }
+    .card { border-radius:16px; padding:19px; }
+    .panel { border-radius:16px; padding:20px; }
+    .primary,.tab-item.active { background:linear-gradient(110deg,#0b1b3b,#075b91); color:white; }
+    .secondary { background:#e4f5fc; color:#07527e; }
+    input:focus,select:focus { border-color:#00aeda; box-shadow:0 0 0 3px #00c9f21c; }
+    button:hover,label.btn-upload:hover { transform:translateY(-1px); filter:brightness(1.04); }
+    .code-badge { background:#e6f7fc; color:#07527e; border-color:#b9e9f6; }
+    #authGate { background:radial-gradient(ellipse at 50% 0%,#174b82 0%,#07152f 65%); }
+    #authGate .auth-card { border:1px solid #dce9f6; box-shadow:0 24px 80px #0006; }
+    @media(max-width:550px) {
+      header { padding:14px 12px; }
+      .brand h1 { font-size:20px; }
+      .brand small { font-size:9px; }
+    }
     body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, sans-serif; color:var(--text); }
     header { background:var(--green); color:white; padding:16px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; }
     .brand { display:flex; align-items:center; gap:12px; }
@@ -98,7 +127,7 @@
 
 <div id="authGate">
   <form class="auth-card" id="authForm">
-    <div class="logo" style="margin-bottom:16px;">C</div>
+    <div class="logo" style="margin-bottom:16px;"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 7v26M12 7v26M17 7v26M24 7v26M29 7v26M34 7v26" stroke="white" stroke-width="2.6"/><path d="m17 22 5 5 11-13" fill="none" stroke="#07152f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <h2>Acesso ao CheckProdut</h2>
     <p>Entre com seu e-mail corporativo autorizado para acessar os dados compartilhados da loja.</p>
     <label for="authEmail">E-mail</label>
@@ -115,9 +144,9 @@
 
 <header>
   <div class="brand">
-    <div class="logo">C</div>
+    <div class="logo" aria-label="CheckProdut"><svg viewBox="0 0 40 40" role="img" aria-hidden="true"><path d="M7 7v26M12 7v26M17 7v26M24 7v26M29 7v26M34 7v26" stroke="white" stroke-width="2.6"/><path d="m17 22 5 5 11-13" fill="none" stroke="#07152f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <div>
-      <h1>CheckProdut</h1>
+      <h1>Check<span>Produt</span></h1>
       <small>CONTROLE INTELIGENTE DE VALIDADE · PETCAMP</small>
     </div>
   </div>
