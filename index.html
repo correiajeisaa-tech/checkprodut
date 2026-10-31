@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CheckProdut | Controle Inteligente de Validade</title>
-  <!-- Tesseract OCR para leitura de imagem -->
+  <!-- Tesseract OCR para leitura de texto em imagem -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <!-- HTML5-QRCode para leitura de código de barras -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -24,91 +24,68 @@
     }
     * { box-sizing: border-box; }
     body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color:var(--text); }
-    
-    header { background:var(--green); color:white; padding:18px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+    header { background:var(--green); color:white; padding:16px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
     .brand { display:flex; align-items:center; gap:12px; }
-    .logo { width:44px; height:44px; background:var(--lime); color:var(--green); border-radius:12px; display:grid; place-items:center; font-size:24px; font-weight:900; }
-    .brand h1 { font-size:22px; margin:0; font-weight:800; letter-spacing:-0.5px; }
-    .brand small { display:block; color:#c5d6cc; margin-top:2px; font-size:11px; letter-spacing:1px; }
-    .header-right { display:flex; align-items:center; gap:12px; }
-    
-    main { max-width:1250px; margin:24px auto; padding:0 20px; }
-    
-    .welcome { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:20px; }
-    h2 { margin:0 0 4px; font-size:24px; color:var(--green); }
-    .subtitle { color:var(--muted); font-size:13px; }
-    
-    button { border:0; border-radius:8px; padding:10px 16px; font-weight:700; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
+    .logo { width:42px; height:42px; background:var(--lime); color:var(--green); border-radius:10px; display:grid; place-items:center; font-size:22px; font-weight:900; }
+    .brand h1 { font-size:20px; margin:0; font-weight:800; letter-spacing:-0.5px; }
+    .brand small { display:block; color:#c5d6cc; font-size:10px; letter-spacing:1px; }
+    main { max-width:1200px; margin:20px auto; padding:0 15px; }
+    .welcome { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:18px; }
+    h2 { margin:0 0 4px; font-size:22px; color:var(--green); }
+    .subtitle { color:var(--muted); font-size:12px; }
+    button { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
     .primary { background:var(--green); color:white; }
     .primary:hover { background:var(--green2); }
     .secondary { background:#e2eae4; color:var(--green); }
     .secondary:hover { background:#d3ded6; }
     .danger { background:#fae9e8; color:#a83c3c; }
-    .danger:hover { background:#f5d5d3; }
     .outline { background:transparent; border:1px solid var(--border); color:var(--text); }
-    .outline:hover { background:#fff; border-color:var(--muted); }
-    
-    .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
-    .card { background:white; padding:18px; border:1px solid var(--border); border-radius:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-    .card small { color:var(--muted); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
-    .number { font-size:30px; font-weight:800; margin-top:8px; line-height:1; }
+    .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+    .card { background:white; padding:16px; border:1px solid var(--border); border-radius:12px; }
+    .card small { color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; }
+    .number { font-size:28px; font-weight:800; margin-top:6px; line-height:1; }
     .card.green .number { color:var(--green); }
     .card.orange .number { color:var(--orange); }
     .card.red .number { color:var(--red); }
     .card.blue .number { color:var(--blue); }
-    
-    .panel { background:white; border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-    .panel-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; border-bottom:1px solid #f0f4f1; padding-bottom:12px; }
-    .panel h3 { margin:0; font-size:17px; color:var(--green); font-weight:700; }
-    
-    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-    label { display:block; font-size:12px; font-weight:700; margin-bottom:6px; color:#415249; }
-    input, select { width:100%; padding:11px 13px; border:1px solid #c8d4cb; border-radius:8px; background:white; font-size:14px; color:var(--text); outline:none; transition:border 0.2s; }
-    input:focus, select:focus { border-color:var(--green); box-shadow: 0 0 0 3px rgba(23,61,50,0.1); }
-    
+    .panel { background:white; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:18px; }
+    .panel-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; border-bottom:1px solid #f0f4f1; padding-bottom:10px; }
+    .panel h3 { margin:0; font-size:16px; color:var(--green); font-weight:700; }
+    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    label { display:block; font-size:11px; font-weight:700; margin-bottom:5px; color:#415249; }
+    input, select { width:100%; padding:10px 12px; border:1px solid #c8d4cb; border-radius:8px; background:white; font-size:13px; color:var(--text); outline:none; }
+    input:focus, select:focus { border-color:var(--green); }
     .input-with-btn { display:flex; gap:6px; }
     .input-with-btn input { flex:1; }
-    .icon-btn { padding:0 12px; height:41px; font-size:16px; }
-    
-    .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
-    
-    .tabs-setores { display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:14px; }
-    .tab-item { padding:8px 14px; border-radius:20px; background:#eef3ef; font-size:12px; font-weight:700; color:var(--muted); cursor:pointer; white-space:nowrap; border:1px solid transparent; }
+    .icon-btn { padding:0 12px; height:39px; font-size:15px; }
+    .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+    .tabs-setores { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; }
+    .tab-item { padding:6px 12px; border-radius:18px; background:#eef3ef; font-size:11px; font-weight:700; color:var(--muted); cursor:pointer; white-space:nowrap; }
     .tab-item.active { background:var(--green); color:white; }
-    
-    .code-badge { font-family: monospace; font-size: 13px; font-weight: 700; background: #eef3ef; padding: 3px 7px; border-radius: 5px; color: #1e3a2b; border: 1px solid #d4dfd7; display: inline-block; letter-spacing: 0.5px; }
-    
+    .code-badge { font-family: monospace; font-size: 12px; font-weight: 700; background: #eef3ef; padding: 3px 6px; border-radius: 4px; color: #1e3a2b; border: 1px solid #d4dfd7; display: inline-block; }
     .table-wrap { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; min-width:850px; }
-    th { text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.5px; padding:12px 10px; border-bottom:2px solid var(--border); font-weight:700; }
-    td { padding:12px 10px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+    table { width:100%; border-collapse:collapse; min-width:820px; }
+    th { text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; padding:10px 8px; border-bottom:2px solid var(--border); font-weight:700; }
+    td { padding:11px 8px; border-bottom:1px solid var(--border); font-size:12px; vertical-align:middle; }
     tr:last-child td { border-bottom:0; }
-    tr:hover td { background:#fafcfb; }
-    
-    .tag { display:inline-block; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag { display:inline-block; padding:4px 8px; border-radius:15px; font-size:10px; font-weight:700; }
     .tag.ok { background:#e7f3e9; color:#267044; }
     .tag.warn { background:#fff1dc; color:#a66b13; }
     .tag.urgent { background:#fbe7e6; color:#b23b39; }
     .tag.done { background:#e9edf0; color:#52616a; }
-    .tag.setor { background:#e4eff0; color:#215a6b; font-weight:600; }
-    
-    .actions { display:flex; gap:6px; flex-wrap:wrap; }
-    .actions button { padding:6px 10px; font-size:11px; }
-    
-    .empty { text-align:center; color:var(--muted); padding:40px 10px; font-size:14px; }
-    .footer { text-align:center; color:var(--muted); font-size:11px; padding:24px; }
-    
-    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center; padding:15px; }
-    .modal-content { background:white; border-radius:12px; width:100%; max-width:500px; padding:20px; max-height:90vh; overflow-y:auto; }
-    .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
+    .tag.setor { background:#e4eff0; color:#215a6b; }
+    .actions { display:flex; gap:4px; flex-wrap:wrap; }
+    .actions button { padding:5px 8px; font-size:11px; }
+    .empty { text-align:center; color:var(--muted); padding:35px 10px; font-size:13px; }
+    .footer { text-align:center; color:var(--muted); font-size:10px; padding:20px; }
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; padding:15px; }
+    .modal-content { background:white; border-radius:12px; width:100%; max-width:480px; padding:20px; max-height:85vh; overflow-y:auto; }
+    .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .modal-head h4 { margin:0; font-size:16px; color:var(--green); }
-    
-    .camera-box { width:100%; height:250px; background:#000; border-radius:8px; overflow:hidden; position:relative; }
+    .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; position:relative; }
     .camera-box video { width:100%; height:100%; object-fit:cover; }
-    
-    .badge-auto { font-size: 10px; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
-    
-    @media(max-width:900px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
+    .badge-auto { font-size: 9px; background: #e8f5e9; color: #2e7d32; padding: 2px 5px; border-radius: 3px; font-weight: bold; margin-left: 4px; }
+    @media(max-width:850px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
     @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid-template-columns:1fr;} }
   </style>
 </head>
@@ -122,8 +99,8 @@
       <small>CONTROLE INTELIGENTE DE VALIDADE · PETCAMP</small>
     </div>
   </div>
-  <div class="header-right">
-    <button class="secondary" onclick="abrirModalImportacao()">📥 Importar Planilha CSV</button>
+  <div>
+    <button type="button" class="secondary" onclick="abrirModalImportacao()">📥 Importar Planilha CSV</button>
   </div>
 </header>
 
@@ -134,28 +111,16 @@
       <div class="subtitle">Cadastre produtos, monitore trocas de etiquetas e consulte setores.</div>
     </div>
     <div style="display:flex; gap:8px;">
-      <button class="outline" onclick="carregarDadosExemplo()">⚡ Dados de Teste</button>
-      <button class="primary" onclick="document.getElementById('cadastro').scrollIntoView({behavior:'smooth'})">+ Novo Produto</button>
+      <button type="button" class="outline" onclick="carregarDadosExemplo()">⚡ Dados de Teste</button>
+      <button type="button" class="primary" onclick="document.getElementById('cadastro').scrollIntoView({behavior:'smooth'})">+ Novo Produto</button>
     </div>
   </div>
 
   <section class="cards">
-    <div class="card green">
-      <small>Produtos Cadastrados</small>
-      <div class="number" id="total">0</div>
-    </div>
-    <div class="card orange">
-      <small>Alerta 15% (Atenção)</small>
-      <div class="number" id="alerta15">0</div>
-    </div>
-    <div class="card red">
-      <small>Alerta 30% (Urgente)</small>
-      <div class="number" id="alerta30">0</div>
-    </div>
-    <div class="card blue">
-      <small>Etiquetas Atualizadas</small>
-      <div class="number" id="atualizados">0</div>
-    </div>
+    <div class="card green"><small>Cadastrados</small><div class="number" id="total">0</div></div>
+    <div class="card orange"><small>Alerta 15%</small><div class="number" id="alerta15">0</div></div>
+    <div class="card red"><small>Alerta 30%</small><div class="number" id="alerta30">0</div></div>
+    <div class="card blue"><small>Etiquetas Atualizadas</small><div class="number" id="atualizados">0</div></div>
   </section>
 
   <!-- FORMULÁRIO DE CADASTRO -->
@@ -163,9 +128,9 @@
     <div class="panel-head">
       <div>
         <h3 id="formTitle">Cadastrar Produto</h3>
-        <span class="subtitle">Bipe o código de barras e informe a validade.</span>
+        <span class="subtitle">Bipe o código ou preencha os dados</span>
       </div>
-      <button id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar Edição</button>
+      <button type="button" id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar Edição</button>
     </div>
 
     <form id="formProduto">
@@ -194,7 +159,7 @@
           <select id="setor" required>
             <option value="">Selecione o Setor</option>
             <option value="Rações Dry">Rações Dry (Secas)</option>
-            <option value="Rações Úmidas">Rações Úmidas (Sachês/Latas)</option>
+            <option value="Rações Úmidas">Rações Úmidas</option>
             <option value="Higiene e Limpeza">Higiene e Limpeza</option>
             <option value="Farmácia e Medicamentos">Farmácia e Medicamentos</option>
             <option value="Acessórios e Brinquedos">Acessórios e Brinquedos</option>
@@ -203,8 +168,8 @@
         </div>
 
         <div>
-          <label for="quantidade">Quantidade (cx/un)</label>
-          <input id="quantidade" type="number" min="1" value="1" placeholder="Qtd" required>
+          <label for="quantidade">Quantidade</label>
+          <input id="quantidade" type="number" min="1" value="1" required>
         </div>
 
         <div>
@@ -212,7 +177,7 @@
           <div class="input-with-btn">
             <input id="validade" type="date" required>
             <button type="button" class="secondary icon-btn" title="Falar Validade por Voz" onclick="iniciarLeituraVoz()">🎤</button>
-            <button type="button" class="secondary icon-btn" title="Tirar Foto da Validade (OCR)" onclick="abrirModalOCR()">📷</button>
+            <button type="button" class="secondary icon-btn" title="Fotografar Validade" onclick="abrirModalOCR()">📷</button>
           </div>
         </div>
 
@@ -228,7 +193,7 @@
 
         <div>
           <label for="funcionario">Funcionário Responsável</label>
-          <input id="funcionario" placeholder="Seu nome ou RE" required>
+          <input id="funcionario" placeholder="Seu nome" required>
         </div>
       </div>
 
@@ -239,19 +204,18 @@
     </form>
   </section>
 
-  <!-- TABELA E FILTROS -->
+  <!-- TABELA -->
   <section class="panel">
     <div class="panel-head">
       <div>
         <h3>Produtos Acompanhados</h3>
-        <div class="subtitle">Monitore produtos perto da validade e trocas de etiquetas.</div>
+        <div class="subtitle">Controle de validade por setor</div>
       </div>
-      <button class="secondary" onclick="exportarCSV()">Exportar CSV (Excel)</button>
+      <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
     </div>
 
-    <!-- ABAS DE SETORES -->
     <div class="tabs-setores" id="tabsSetores">
-      <div class="tab-item active" onclick="filtrarSetor('TODOS', this)">Todos os Setores</div>
+      <div class="tab-item active" onclick="filtrarSetor('TODOS', this)">Todos</div>
       <div class="tab-item" onclick="filtrarSetor('Rações Dry', this)">Rações Dry</div>
       <div class="tab-item" onclick="filtrarSetor('Rações Úmidas', this)">Rações Úmidas</div>
       <div class="tab-item" onclick="filtrarSetor('Higiene e Limpeza', this)">Higiene/Limpeza</div>
@@ -260,9 +224,9 @@
       <div class="tab-item" onclick="filtrarSetor('Outros', this)">Outros</div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
-      <input id="busca" style="flex:1; min-width:200px;" placeholder="Pesquisar por código EAN, nome, setor ou funcionário..." oninput="renderizar()">
-      <select id="filtroFuncionario" style="width:200px;" onchange="renderizar()">
+    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+      <input id="busca" style="flex:1; min-width:200px;" placeholder="Pesquisar por EAN, nome ou funcionário..." oninput="renderizar()">
+      <select id="filtroFuncionario" style="width:180px;" onchange="renderizar()">
         <option value="">Todos os Funcionários</option>
       </select>
     </div>
@@ -271,13 +235,13 @@
       <table>
         <thead>
           <tr>
-            <th>Código (EAN)</th>
-            <th>Produto / Apresentação</th>
+            <th>Código EAN</th>
+            <th>Produto / Peso</th>
             <th>Setor</th>
             <th>Qtd</th>
             <th>Validade</th>
-            <th>Dias Restantes</th>
-            <th>Situação / Etiqueta</th>
+            <th>Dias</th>
+            <th>Situação</th>
             <th>Responsável</th>
             <th>Ações</th>
           </tr>
@@ -288,21 +252,21 @@
     </div>
   </section>
 
-  <div class="footer">CheckProdut · Sistema de Gestão de Validade Petcamp · Desenvolvido para Alta Produtividade</div>
+  <div class="footer">CheckProdut · Sistema de Gestão de Validade Petcamp</div>
 </main>
 
 <!-- MODAL IMPORTAR PLANILHA -->
 <div class="modal" id="modalImportar">
   <div class="modal-content">
     <div class="modal-head">
-      <h4>Importar Base de Produtos (CSV)</h4>
-      <button class="outline icon-btn" onclick="fecharModal('modalImportar')">✕</button>
+      <h4>Importar Planilha (CSV)</h4>
+      <button type="button" class="outline icon-btn" onclick="fecharModal('modalImportar')">✕</button>
     </div>
-    <p style="font-size:13px; color:var(--muted);">Selecione um arquivo CSV para cadastrar produtos em lote. O arquivo deve ter os cabeçalhos: <strong>codigo, descricao, peso, setor</strong>.</p>
+    <p style="font-size:12px; color:var(--muted);">Selecione o arquivo CSV contendo a lista de produtos (codigo;descricao;peso;setor):</p>
     <input type="file" id="csvFile" accept=".csv" style="margin-bottom:15px;">
     <div class="form-actions">
-      <button class="secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
-      <button class="primary" onclick="processarCSV()">Importar Planilha</button>
+      <button type="button" class="secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
+      <button type="button" class="primary" onclick="processarCSV()">Importar Planilha</button>
     </div>
   </div>
 </div>
@@ -312,34 +276,34 @@
   <div class="modal-content">
     <div class="modal-head">
       <h4>Leitor de Código de Barras</h4>
-      <button class="outline icon-btn" onclick="fecharScannerBarcode()">✕</button>
+      <button type="button" class="outline icon-btn" onclick="fecharScannerBarcode()">✕</button>
     </div>
     <div id="reader" style="width:100%;"></div>
   </div>
 </div>
 
-<!-- MODAL OCR (VALIDADE POR FOTO) -->
+<!-- MODAL OCR (FOTOGRAFAR VALIDADE) -->
 <div class="modal" id="modalOCR">
   <div class="modal-content">
     <div class="modal-head">
       <h4>Fotografar Validade</h4>
-      <button class="outline icon-btn" onclick="fecharModalOCR()">✕</button>
+      <button type="button" class="outline icon-btn" onclick="fecharModalOCR()">✕</button>
     </div>
-    <p style="font-size:12px; color:var(--muted);">Aponte a câmera para a data impressa na caixa/embalagem do produto.</p>
+    <p style="font-size:12px; color:var(--muted);">Posicione a data de validade dentro do enquadramento da câmera.</p>
     <div class="camera-box">
       <video id="videoOCR" autoplay playsinline></video>
     </div>
     <div id="ocrStatus" style="font-size:12px; margin:10px 0; font-weight:bold; color:var(--green);"></div>
     <div class="form-actions">
-      <button class="secondary" onclick="fecharModalOCR()">Cancelar</button>
-      <button class="primary" onclick="capturarEProcessarOCR()">Capturar e Extrair Data</button>
+      <button type="button" class="secondary" onclick="fecharModalOCR()">Cancelar</button>
+      <button type="button" class="primary" onclick="capturarEProcessarOCR()">Capturar e Extrair Data</button>
     </div>
   </div>
 </div>
 
 <script>
-const CHAVE_PRODUTOS = "checkprodut_produtos_v3";
-const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v3";
+const CHAVE_PRODUTOS = "checkprodut_produtos_v5";
+const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v5";
 
 let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
@@ -373,7 +337,7 @@ function formatarData(dataStr) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-// REGRAS DE AUTO-DETECÇÃO DE SETOR
+// AUTO DETECTAR SETOR POR PALAVRAS-CHAVE
 function autoDetectarSetor(descricao) {
   const desc = descricao.toLowerCase();
   const selectSetor = document.getElementById("setor");
@@ -381,17 +345,13 @@ function autoDetectarSetor(descricao) {
 
   let setorDetectado = "";
 
-  if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal") || desc.includes("granplus")) {
-    if (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata") || desc.includes("pate") || desc.includes("patê")) {
-      setorDetectado = "Rações Úmidas";
-    } else {
-      setorDetectado = "Rações Dry";
-    }
-  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("creme") || desc.includes("escova") || desc.includes("sanitário") || desc.includes("tapete")) {
+  if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal")) {
+    setorDetectado = (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata")) ? "Rações Úmidas" : "Rações Dry";
+  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("escova")) {
     setorDetectado = "Higiene e Limpeza";
-  } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("antipulgas") || desc.includes("remédio") || desc.includes("remedio") || desc.includes("vacin") || desc.includes("pomada")) {
+  } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("antipulgas") || desc.includes("remédio") || desc.includes("remedio")) {
     setorDetectado = "Farmácia e Medicamentos";
-  } else if (desc.includes("brinquedo") || desc.includes("coleira") || desc.includes("guia") || desc.includes("cama") || desc.includes("arranhador")) {
+  } else if (desc.includes("brinquedo") || desc.includes("coleira") || desc.includes("guia") || desc.includes("arranhador")) {
     setorDetectado = "Acessórios e Brinquedos";
   }
 
@@ -403,22 +363,19 @@ function autoDetectarSetor(descricao) {
   }
 }
 
-// BUSCA AUTOMÁTICA SE O CÓDIGO JÁ EXISTE NO CATÁLOGO OU BANCO
+// BUSCA AUTOMÁTICA POR CÓDIGO EAN
 function buscarProdutoPorCodigo(codigo) {
   const ean = codigo.trim();
   if(!ean) return;
 
-  // Busca primeiro nos produtos já cadastrados
   const existente = produtos.find(p => p.barcode === ean);
   if (existente) {
     document.getElementById("descricao").value = existente.descricao;
     document.getElementById("peso").value = existente.peso || "";
     document.getElementById("setor").value = existente.setor;
-    document.getElementById("especie").value = existente.especie || "Cachorro";
     return;
   }
 
-  // Busca no catálogo base importado
   const itemCatalogo = catalogoBase.find(c => c.codigo === ean);
   if (itemCatalogo) {
     document.getElementById("descricao").value = itemCatalogo.descricao;
@@ -428,7 +385,7 @@ function buscarProdutoPorCodigo(codigo) {
   }
 }
 
-// CADASTRO / EDIÇÃO
+// FORMULÁRIO DE CADASTRO E EDIÇÃO
 document.getElementById("formProduto").addEventListener("submit", function(e) {
   e.preventDefault();
   
@@ -497,7 +454,6 @@ function marcarAtualizada(id) {
     if (!resp) return;
     p.etiquetaAtualizada = true;
     p.funcionarioTroca = resp;
-    p.dataAtualizacao = new Date().toISOString();
   } else {
     p.etiquetaAtualizada = false;
     p.funcionarioTroca = null;
@@ -511,7 +467,7 @@ function excluir(id) {
   salvar();
 }
 
-// RENDERIZAÇÃO DA TABELA E FILTROS
+// FILTRAR POR SETOR
 function filtrarSetor(setor, el) {
   setorFiltroAtual = setor;
   document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
@@ -519,6 +475,7 @@ function filtrarSetor(setor, el) {
   renderizar();
 }
 
+// RENDERIZAR TABELA
 function renderizar() {
   const busca = (document.getElementById("busca")?.value || "").toLowerCase();
   const funcFiltro = document.getElementById("filtroFuncionario")?.value || "";
@@ -530,7 +487,6 @@ function renderizar() {
     return matchBusca && matchSetor && matchFunc;
   });
 
-  // Atualiza Contadores
   document.getElementById("total").textContent = produtos.length;
   document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
   document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
@@ -540,7 +496,6 @@ function renderizar() {
   tbody.innerHTML = "";
   document.getElementById("vazio").style.display = filtrados.length ? "none" : "block";
 
-  // Ordena por menor data de validade
   filtrados.sort((a,b) => diasRestantes(a.validade) - diasRestantes(b.validade));
 
   filtrados.forEach(p => {
@@ -553,18 +508,18 @@ function renderizar() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><span class="code-badge">${escapar(p.barcode)}</span></td>
-      <td><strong>${escapar(p.descricao)}</strong><br><small style="color:var(--muted);">${escapar(p.peso || "S/ peso")}</small></td>
+      <td><strong>${escapar(p.descricao)}</strong><br><small style="color:var(--muted);">${escapar(p.peso || "")}</small></td>
       <td><span class="tag setor">${escapar(p.setor)}</span></td>
       <td><strong>${p.quantidade}</strong></td>
       <td>${formatarData(p.validade)}</td>
-      <td>${dias < 0 ? `<strong style="color:var(--red);">Vencido há ${Math.abs(dias)} dias</strong>` : `${dias} dias`}</td>
+      <td>${dias < 0 ? `<strong style="color:var(--red);">Vencido</strong>` : `${dias} dias`}</td>
       <td>${statusTag}</td>
       <td><small>${escapar(p.funcionario)}${p.funcionarioTroca ? `<br><b style="color:var(--green);">Troca: ${escapar(p.funcionarioTroca)}</b>` : ''}</small></td>
       <td>
         <div class="actions">
-          <button class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Marcar Troca"}</button>
-          <button class="outline" onclick="editarProduto(${p.id})">Editar</button>
-          <button class="danger" onclick="excluir(${p.id})">✕</button>
+          <button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Troca"}</button>
+          <button type="button" class="outline" onclick="editarProduto(${p.id})">Editar</button>
+          <button type="button" class="danger" onclick="excluir(${p.id})">✕</button>
         </div>
       </td>
     `;
@@ -597,106 +552,54 @@ function escapar(v) {
   }[c]));
 }
 
-// RECONHECIMENTO DE VOZ (MICROFONE)
-function iniciarLeituraVoz() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert("Reconhecimento de voz não é suportado neste navegador. Use o Chrome no Android/PC.");
-    return;
-  }
+// SUA FUNÇÃO ASYNC ABRIR MODAL OCR (CÂMERA) INTEGRADA
+async function abrirModalOCR() {
+    const modal = document.getElementById("modalOCR");
+    const video = document.getElementById("videoOCR");
+    const status = document.getElementById("ocrStatus");
 
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'pt-BR';
-  recognition.interimResults = false;
-
-  alert("Fale a data de validade (Exemplo: '15 de novembro de 2026' ou 'dez de maio de vinte e sete').");
-
-  recognition.start();
-
-  recognition.onresult = function(event) {
-    const texto = event.results[0][0].transcript;
-    console.log("Voz capturada:", texto);
-    
-    // Tenta converter texto em data
-    const dataConvertida = converterTextoParaData(texto);
-    if (dataConvertida) {
-      document.getElementById("validade").value = dataConvertida;
-      alert(`Validade reconhecida: ${formatarData(dataConvertida)}`);
-    } else {
-      alert(`Voz capturada: "${texto}". Não conseguimos identificar a data exata. Selecione no calendário.`);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("A câmera não está disponível. Abra o CheckProdut pelo endereço HTTPS.");
+        return;
     }
-  };
 
-  recognition.onerror = function(event) {
-    alert("Erro ao escutar áudio: " + event.error);
-  };
-}
+    try {
+        status.textContent = "Solicitando acesso à câmera...";
+        modal.style.display = "flex";
 
-function converterTextoParaData(texto) {
-  const meses = {
-    'janeiro':'01','fevereiro':'02','março':'03','marco':'03','abril':'04','maio':'05','junho':'06',
-    'julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'
-  };
+        if (streamVideoOCR) {
+            streamVideoOCR.getTracks().forEach(track => track.stop());
+        }
 
-  const t = texto.toLowerCase();
-  
-  // Exemplo: 15/10/2026 ou 15 10 2026
-  const regexNum = /(\d{1,2})[\/\s\.-](\d{1,2})[\/\s\.-](\d{2,4})/;
-  const matchNum = t.match(regexNum);
-  if (matchNum) {
-    let dia = matchNum[1].padStart(2, '0');
-    let mes = matchNum[ mes[2] ? matchNum[2].padStart(2, '0') : '01' ];
-    let ano = matchNum[3].length === 2 ? "20" + matchNum[3] : matchNum[3];
-    return `${ano}-${mes}-${dia}`;
-  }
+        streamVideoOCR = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
 
-  // Exemplo: 15 de novembro de 2026
-  for (let key in meses) {
-    if (t.includes(key)) {
-      const matchDia = t.match(/(\d{1,2})/);
-      const matchAno = t.match(/(20\d{2})/);
-      if (matchDia && matchAno) {
-        let dia = matchDia[1].padStart(2, '0');
-        let mes = meses[key];
-        let ano = matchAno[1];
-        return `${ano}-${mes}-${dia}`;
-      }
+        video.srcObject = streamVideoOCR;
+        await video.play();
+        status.textContent = "Câmera aberta! Posicione a validade na imagem.";
+
+    } catch (erro) {
+        console.error("Erro ao abrir câmera:", erro);
+        status.textContent = "Não foi possível abrir a câmera.";
+
+        let mensagem = "Verifique se a câmera está conectada e se o navegador tem permissão para utilizá-la.";
+
+        if (erro.name === "NotAllowedError") {
+            mensagem = "Acesso à câmera negado. Permita o uso da câmera nas configurações do navegador.";
+        } else if (erro.name === "NotFoundError") {
+            mensagem = "Nenhuma câmera foi encontrada neste dispositivo.";
+        } else if (erro.name === "NotReadableError") {
+            mensagem = "A câmera pode estar sendo utilizada por outro aplicativo.";
+        }
+
+        alert(mensagem);
     }
-  }
-  return null;
-}
-
-// SCANNER BARCODE VIA CÂMERA
-function abrirScannerBarcode() {
-  document.getElementById("modalScanner").style.display = "flex";
-  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
-  html5QrcodeScanner.render((decodedText) => {
-    document.getElementById("barcode").value = decodedText;
-    buscarProdutoPorCodigo(decodedText);
-    fecharScannerBarcode();
-  });
-}
-
-function fecharScannerBarcode() {
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.clear().catch(e => console.log(e));
-  }
-  fecharModal("modalScanner");
-}
-
-// OCR DE VALIDADE POR FOTO
-function abrirModalOCR() {
-  document.getElementById("modalOCR").style.display = "flex";
-  const video = document.getElementById("videoOCR");
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-    .then(stream => {
-      streamVideoOCR = stream;
-      video.srcObject = stream;
-    })
-    .catch(err => {
-      alert("Não foi possível acessar a câmera para OCR.");
-      fecharModalOCR();
-    });
 }
 
 function fecharModalOCR() {
@@ -714,23 +617,99 @@ function capturarEProcessarOCR() {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0);
 
-  document.getElementById("ocrStatus").textContent = "Processando foto e lendo data...";
+  document.getElementById("ocrStatus").textContent = "Lendo texto da imagem...";
 
   Tesseract.recognize(canvas, 'por', { logger: m => console.log(m) })
     .then(({ data: { text } }) => {
-      console.log("OCR Texto:", text);
+      console.log("Texto lido:", text);
       const dataExtraida = converterTextoParaData(text);
       if (dataExtraida) {
         document.getElementById("validade").value = dataExtraida;
-        alert("Validade extraída da foto com sucesso!");
+        alert("Validade lida com sucesso!");
         fecharModalOCR();
       } else {
-        document.getElementById("ocrStatus").textContent = `Texto lido: "${text.trim()}". Tente aproximar mais da data.`;
+        document.getElementById("ocrStatus").textContent = `Lido: "${text.trim()}". Não identificamos uma data. Tente novamente.`;
       }
     });
 }
 
-// IMPORTAÇÃO CSV DA PLANILHA DE PRODUTOS
+// RECONHECIMENTO DE VOZ (MICROFONE)
+function iniciarLeituraVoz() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Reconhecimento de voz não é suportado neste navegador. Use o Google Chrome.");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.interimResults = false;
+
+  alert("Fale a data de validade (Exemplo: '15 de novembro de 2026').");
+  recognition.start();
+
+  recognition.onresult = function(event) {
+    const texto = event.results[0][0].transcript;
+    const dataConvertida = converterTextoParaData(texto);
+    if (dataConvertida) {
+      document.getElementById("validade").value = dataConvertida;
+      alert(`Validade reconhecida: ${formatarData(dataConvertida)}`);
+    } else {
+      alert(`Transcrição: "${texto}". Não foi possível formatar a data automaticamente.`);
+    }
+  };
+}
+
+function converterTextoParaData(texto) {
+  const meses = {
+    'janeiro':'01','fevereiro':'02','março':'03','marco':'03','abril':'04','maio':'05','junho':'06',
+    'julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'
+  };
+
+  const t = texto.toLowerCase();
+  const regexNum = /(\d{1,2})[\/\s\.-](\d{1,2})[\/\s\.-](\d{2,4})/;
+  const matchNum = t.match(regexNum);
+  if (matchNum) {
+    let dia = matchNum[1].padStart(2, '0');
+    let mes = matchNum[2].padStart(2, '0');
+    let ano = matchNum[3].length === 2 ? "20" + matchNum[3] : matchNum[3];
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  for (let key in meses) {
+    if (t.includes(key)) {
+      const matchDia = t.match(/(\d{1,2})/);
+      const matchAno = t.match(/(20\d{2})/);
+      if (matchDia && matchAno) {
+        let dia = matchDia[1].padStart(2, '0');
+        let mes = meses[key];
+        let ano = matchAno[1];
+        return `${ano}-${mes}-${dia}`;
+      }
+    }
+  }
+  return null;
+}
+
+// CÂMERA SCANNER BARCODE
+function abrirScannerBarcode() {
+  document.getElementById("modalScanner").style.display = "flex";
+  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
+  html5QrcodeScanner.render((decodedText) => {
+    document.getElementById("barcode").value = decodedText;
+    buscarProdutoPorCodigo(decodedText);
+    fecharScannerBarcode();
+  });
+}
+
+function fecharScannerBarcode() {
+  if (html5QrcodeScanner) {
+    html5QrcodeScanner.clear().catch(e => console.log(e));
+  }
+  fecharModal("modalScanner");
+}
+
+// IMPORTAÇÃO E EXPORTAÇÃO CSV
 function abrirModalImportacao() {
   document.getElementById("modalImportar").style.display = "flex";
 }
@@ -752,36 +731,34 @@ function processarCSV() {
     let adicionados = 0;
 
     linhas.forEach((linha, index) => {
-      if (index === 0 || !linha.trim()) return; // Ignora cabeçalho
+      if (index === 0 || !linha.trim()) return;
       const cols = linha.split(";").map(c => c.replace(/"/g, '').trim());
 
       if (cols.length >= 2) {
-        const item = {
+        catalogoBase.push({
           codigo: cols[0],
           descricao: cols[1],
           peso: cols[2] || "",
           setor: cols[3] || "Outros"
-        };
-        catalogoBase.push(item);
+        });
         adicionados++;
       }
     });
 
     localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
-    alert(`${adicionados} produtos importados para o banco do leitor!`);
+    alert(`${adicionados} produtos importados para o banco de consulta!`);
     fecharModal("modalImportar");
   };
   reader.readAsText(fileInput.files[0]);
 }
 
-// EXPORTAR DADOS PARA CSV
 function exportarCSV() {
   if (!produtos.length) {
     alert("Não existem produtos para exportar.");
     return;
   }
 
-  const linhas = [["Código EAN", "Produto", "Peso", "Setor", "Quantidade", "Validade", "Dias Restantes", "Situação", "Cadastrado Por", "Troca Efetuada Por"]];
+  const linhas = [["Código EAN", "Produto", "Peso", "Setor", "Quantidade", "Validade", "Dias Restantes", "Situação", "Cadastrado Por", "Trocou Etiqueta"]];
   produtos.forEach(p => {
     linhas.push([
       p.barcode,
@@ -807,22 +784,21 @@ function exportarCSV() {
   URL.revokeObjectURL(url);
 }
 
-// CARREGAR DADOS DE EXEMPLO (DEMONSTRAÇÃO)
 function carregarDadosExemplo() {
-  if (produtos.length && !confirm("Isso vai adicionar novos itens de teste. Deseja continuar?")) return;
-
   const hoje = new Date();
   const d90 = new Date(hoje.getTime() + 60*86400000).toISOString().slice(0,10);
-  const d110 = new Date(hoje.getTime() + 105*86400000).toISOString().slice(0,10);
-  const d150 = new Date(hoje.getTime() + 150*86400000).toISOString().slice(0,10);
-
-  const exemplos = [
-    { id: Date.now()+1, barcode: "7891008123456", descricao: "Ração Premier Raças Pequenas", peso: "15 kg", setor: "Rações Dry", quantidade: 4, validade: d90, especie: "Cachorro", funcionario: "Jeisa", etiquetaAtualizada: false },
-    { id: Date.now()+2, barcode: "7891008654321", descricao: "Shampoo Neutro Pet", peso: "500 ml", setor: "Higiene e Limpeza", quantidade: 10, validade: d110, especie: "Ambos", funcionario: "Carlos", etiquetaAtualizada: false },
-    { id: Date.now()+3, barcode: "7891008999999", descricao: "Sachê Golden Gatos Frango", peso: "85 g", setor: "Rações Úmidas", quantidade: 24, validade: d150, especie: "Gato", funcionario: "Jeisa", etiquetaAtualizada: true, funcionarioTroca: "Jeisa" }
-  ];
-
-  produtos.push(...exemplos);
+  produtos.push({
+    id: Date.now(),
+    barcode: "7891008123456",
+    descricao: "Ração Premier Raças Pequenas",
+    peso: "15 kg",
+    setor: "Rações Dry",
+    quantidade: 4,
+    validade: d90,
+    especie: "Cachorro",
+    funcionario: "Jeisa",
+    etiquetaAtualizada: false
+  });
   salvar();
 }
 
