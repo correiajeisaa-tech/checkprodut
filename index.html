@@ -395,16 +395,19 @@ function carregarRelatorioLoja(event) {
       let headerIdx = 0;
       let colGtin = -1, colDesc = -1, colVal = -1;
 
-      for (let i = 0; i < Math.min(rows.length, 10); i++) {
-        const rowStr = JSON.stringify(rows[i]).toLowerCase();
-        if (rowStr.includes('gtin') || rowStr.includes('codigo') || rowStr.includes('produto') || rowStr.includes('descricao')) {
+      const normalizarCabecalho = valor => String(valor || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+      for (let i = 0; i < Math.min(rows.length, 15); i++) {
+        const headers = rows[i] || [];
+        const nomes = headers.map(normalizarCabecalho);
+        const temGtin = nomes.some(h => /gtin|ean|codigo.*(barra|produto)?|barras/.test(h));
+        const temDescricao = nomes.some(h => /produto|descri|item/.test(h));
+        if (temGtin && temDescricao) {
           headerIdx = i;
-          const headers = rows[i];
           headers.forEach((h, idx) => {
-            const hLower = String(h || '').toLowerCase();
-            if (colGtin === -1 && (hLower.includes('gtin') || hLower.includes('código') || hLower.includes('barras') || hLower.includes('ean'))) colGtin = idx;
-            if (colDesc === -1 && (hLower.includes('produto') || hLower.includes('descri') || hLower.includes('item'))) colDesc = idx;
-            if (colVal === -1 && (hLower.includes('validade') || hLower.includes('vencimento'))) colVal = idx;
+            const hLower = normalizarCabecalho(h);
+            if (colGtin === -1 && /gtin|ean|codigo|barras/.test(hLower)) colGtin = idx;
+            if (colDesc === -1 && /produto|descri|item/.test(hLower)) colDesc = idx;
+            if (colVal === -1 && /validade|vencimento/.test(hLower)) colVal = idx;
           });
           break;
         }
@@ -786,6 +789,14 @@ function interpretarDataValidade(dataStr) {
   }
 
   const valor = String(dataStr).trim();
+  // Quando o Excel entrega o serial como texto, converte antes de analisar datas escritas.
+  if (/^\\d{5}(?:\\.0+)?$/.test(valor)) {
+    const serial = Number(valor);
+    if (serial > 20000 && serial < 80000) {
+      const excel = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+      return new Date(excel.getUTCFullYear(), excel.getUTCMonth(), excel.getUTCDate());
+    }
+  }
   let ano, mes, dia;
   let partes = valor.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/);
   if (partes) {
