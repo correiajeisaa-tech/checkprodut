@@ -320,6 +320,9 @@ let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]")
 let setorFiltroAtual = "TODOS";
 let html5QrcodeScanner = null;
 let streamVideoOCR = null;
+let camerasBarcode = [];
+let cameraBarcodeAtual = null;
+let processandoOCR = false;
 
 function salvar() {
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
@@ -653,93 +656,271 @@ function atualizarListaFuncionarios() {
 
 // CÂMERA OCR
 async function abrirModalOCR() {
-    const modal = document.getElementById("modalOCR");
-    const video = document.getElementById("videoOCR");
-    const status = document.getElementById("ocrStatus");
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Abra o site pelo link HTTPS para liberar a câmera.");
-        return;
-    }
-    try {
-        status.textContent = "Abrindo câmera...";
-        modal.style.display = "flex";
-        if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
-        streamVideoOCR = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
-        video.srcObject = streamVideoOCR;
-        await video.play();
-        status.textContent = "Câmera pronta! Posicione a validade na imagem.";
-    } catch (erro) {
-        alert("Erro ao abrir a câmera: " + erro.message);
-    }
+  const modal = document.getElementById("modalOCR");
+  const video = document.getElementById("videoOCR");
+  const status = document.getElementById("ocrStatus");
+  if (!navigator.mediaDevices?.getUserMedia) {
+    status.textContent = "A câmera não está disponível. Abra o CheckProdut pelo endereço HTTPS.";
+    modal.style.display = "flex";
+    return;
+  }
+  try {
+    status.textContent = "Abrindo câmera...";
+    modal.style.display = "flex";
+    if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
+    streamVideoOCR = await navigator.mediaDevices.getUserMedia({
+      audio: false, video: { facingMode: { ideal: "environment" } }
+    });
+    video.srcObject = streamVideoOCR;
+    await video.play();
+    status.textContent = "Câmera pronta. Enquadre a validade e toque em Capturar Data.";
+  } catch (erro) {
+    status.textContent = "Não foi possível abrir a câmera. Verifique a permissão nas configurações do navegador.";
+    console.error("Erro na câmera:", erro);
+  }
 }
 
 function fecharModalOCR() {
   if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
+  streamVideoOCR = null;
+  document.getElementById("videoOCR").srcObject = null;
   document.getElementById("modalOCR").style.display = "none";
 }
 
-function capturarEProcessarOCR() {
+async function capturarEProcessarOCR() {
+  if (processandoOCR) return;
   const video = document.getElementById("videoOCR");
+  const status = document.getElementById("ocrStatus");
+  if (!video.videoWidth || !video.videoHeight) {
+    status.textContent = "A câmera ainda está iniciando. Aguarde um instante.";
+    return;
+  }
+  processandoOCR = true;
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0);
-  document.getElementById("ocrStatus").textContent = "Processando imagem...";
-  Tesseract.recognize(canvas, 'por').then(({ data: { text } }) => {
-    const dataExt = converterTextoParaData(text);
+  status.textContent = "Lendo a validade da imagem...";
+  try {
+    const resultado = await Tesseract.recognize(canvas, "por+eng");
+    const dataExt = converterTextoParaData(resultado.data.text || "");
     if (dataExt) {
-      document.getElementById("validade").value = dataExt;
-      alert("Validade reconhecida com sucesso!");
+      preencherValidade(dataExt);
+      status.textContent = "Validade identificada: " + formatarData(dataExt);
       fecharModalOCR();
     } else {
-      document.getElementById("ocrStatus").textContent = "Data não identificada. Tente aproximar a câmera.";
+      status.textContent = "Não consegui identificar a data. Vou abrir o calendário para você selecionar.";
+      fecharModalOCR();
+      abrirCalendarioValidade();
     }
-  });
+  } catch (erro) {
+    console.error("Erro no reconhecimento da validade:", erro);
+    status.textContent = "Não foi possível ler a imagem. Selecione a data no calendário.";
+    fecharModalOCR();
+    abrirCalendarioValidade();
+  } finally {
+    processandoOCR = false;
+  }
 }
 
 // MICROFONE DE VOZ
+function preencherValidade(dataISO) {
+  const campo = document.getElementById("validade");
+  campo.value = dataISO;
+  campo.dispatchEvent(new Event("input", { bubbles: true }));
+  campo.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function abrirCalendarioValidade() {
+  const campo = document.getElementById("validade");
+  campo.focus();
+  if (typeof campo.showPicker === "function") {
+    try { campo.showPicker(); } catch (e) { campo.click(); }
+  } else {
+    campo.click();
+  }
+}
+
 function iniciarLeituraVoz() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) { alert("Use o navegador Google Chrome no Android para voz."); return; }
+  if (!SpeechRecognition) {
+    alert("O reconhecimento de voz não está disponível neste navegador. Selecione a validade no calendário.");
+    abrirCalendarioValidade();
+    return;
+  }
   const rec = new SpeechRecognition();
-  rec.lang = 'pt-BR';
-  alert("Fale a validade (Ex: 15 de novembro de 2026)");
-  rec.start();
-  rec.onresult = function(e) {
-    const t = e.results[0][0].transcript;
-    const d = converterTextoParaData(t);
-    if (d) { document.getElementById("validade").value = d; alert("Validade preenchida!"); }
-    else { alert("Voz capturada: " + t); }
+  rec.lang = "pt-BR";
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.maxAlternatives = 5;
+  let finalizado = false;
+  const finalizarSemData = () => {
+    if (finalizado) return;
+    finalizado = true;
+    abrirCalendarioValidade();
   };
+  rec.onresult = function(e) {
+    const alternativas = Array.from(e.results || []).flatMap(r => Array.from(r || []).map(a => a.transcript || ""));
+    let data = null;
+    for (const fala of alternativas) {
+      data = converterTextoParaData(fala);
+      if (data) break;
+    }
+    if (data) {
+      finalizado = true;
+      preencherValidade(data);
+    } else {
+      finalizarSemData();
+    }
+  };
+  rec.onerror = function(e) {
+    console.warn("Reconhecimento de voz:", e.error);
+    finalizarSemData();
+  };
+  rec.onnomatch = finalizarSemData;
+  rec.onend = function() {
+    if (!finalizado) finalizarSemData();
+  };
+  try { rec.start(); }
+  catch (erro) {
+    console.error("Não foi possível iniciar o microfone:", erro);
+    finalizarSemData();
+  }
 }
 
 function converterTextoParaData(texto) {
-  const meses = {'janeiro':'01','fevereiro':'02','março':'03','marco':'03','abril':'04','maio':'05','junho':'06','julho':'07','agosto':'08','setembro':'09','outubro':'10','novembro':'11','dezembro':'12'};
-  const t = texto.toLowerCase();
-  const mNum = t.match(/(\d{1,2})[\/\s\.-](\d{1,2})[\/\s\.-](\d{2,4})/);
-  if (mNum) return `${mNum[3].length===2?'20'+mNum[3]:mNum[3]}-${mNum[2].padStart(2,'0')}-${mNum[1].padStart(2,'0')}`;
-  for (let k in meses) {
-    if (t.includes(k)) {
-      const dM = t.match(/(\d{1,2})/); const aM = t.match(/(20\d{2})/);
-      if (dM && aM) return `${aM[1]}-${meses[k]}-${dM[1].padStart(2,'0')}`;
+  if (!texto) return null;
+  const meses = {
+    janeiro:"01", jan:"01", fevereiro:"02", fev:"02", marco:"03", mar:"03",
+    abril:"04", abr:"04", maio:"05", mai:"05", junho:"06", jun:"06",
+    julho:"07", jul:"07", agosto:"08", ago:"08", setembro:"09", set:"09", sep:"09",
+    outubro:"10", out:"10", outubro:"10", nov:"11", novembro:"11",
+    dezembro:"12", dez:"12"
+  };
+  const normalizar = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const t = normalizar(String(texto)).replace(/[,_]/g, " ").replace(/\s+/g, " ").trim();
+  const anoCompleto = a => a.length === 2 ? "20" + a : a;
+  const montar = (ano, mes, dia="01") => {
+    const y=Number(anoCompleto(String(ano))), m=Number(mes), d=Number(dia);
+    if (y<2000 || y>2099 || m<1 || m>12 || d<1 || d>31) return null;
+    const dt=new Date(Date.UTC(y,m-1,d));
+    if(dt.getUTCFullYear()!==y || dt.getUTCMonth()!==m-1 || dt.getUTCDate()!==d) return null;
+    return String(y).padStart(4,"0")+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+  };
+
+  // Formatos compactos de validade. Exemplo solicitado: JUN27 = 01/07/2027.
+  const compacto = t.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)[\s./-]*(\d{2,4})\b/i);
+  if (compacto) {
+    const sigla=compacto[1].toLowerCase();
+    const mes= sigla==="jun" ? "07" : meses[sigla];
+    return montar(compacto[2],mes,"01");
+  }
+
+  // Mês/ano ou mês-ano, como ABR/28.
+  const mesAno = t.match(/\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)[\s./-]+(20\d{2}|\d{2})\b/i);
+  if (mesAno) return montar(mesAno[2],meses[mesAno[1]],"01");
+
+  // Data numérica: DD/MM/AAAA, DD-MM-AA ou AAAA-MM-DD.
+  let m=t.match(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b/);
+  if(m) return montar(m[3],m[2],m[1]);
+  m=t.match(/\b(20\d{2})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/);
+  if(m) return montar(m[1],m[2],m[3]);
+
+  // Datas faladas ou escritas por extenso, com ou sem dia.
+  for (const [nome,numero] of Object.entries(meses).sort((a,b)=>b[0].length-a[0].length)) {
+    const re=new RegExp("\\b"+nome+"\\b","i");
+    if(re.test(t)) {
+      const antes=t.slice(0,t.search(re));
+      const depois=t.slice(t.search(re)+nome.length);
+      const diaMatch=antes.match(/(?:dia\\s*)?(\\d{1,2})\\s*(?:de)?\\s*$/);
+      const anoMatch=depois.match(/(?:de\\s*)?(20\\d{2}|\\d{2})\\b/);
+      if(anoMatch) return montar(anoMatch[1],numero,diaMatch?diaMatch[1]:"01");
     }
   }
+
+  // Embalagens podem trazer somente mês e ano em texto abreviado separado.
+  const letras=t.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)\b[^0-9]{0,4}(20\d{2}|\d{2})\b/);
+  if(letras) return montar(letras[2],meses[letras[1]],"01");
   return null;
 }
 
 // CÂMERA SCANNER
-function abrirScannerBarcode() {
-  document.getElementById("modalScanner").style.display = "flex";
-  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150} });
-  html5QrcodeScanner.render((txt) => {
-    document.getElementById("barcode").value = txt;
-    buscarProdutoPorCodigo(txt);
-    fecharScannerBarcode();
-  });
+async function abrirScannerBarcode() {
+  const modal=document.getElementById("modalScanner");
+  const reader=document.getElementById("reader");
+  modal.style.display="flex";
+  reader.innerHTML='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"><label for="cameraBarcodeSelect" style="margin:0;">Câmera:</label><select id="cameraBarcodeSelect" style="flex:1;min-width:180px;"></select><button type="button" class="secondary" id="trocarCameraBarcode">Trocar câmera</button></div><div id="barcodeCameraView"></div><p id="barcodeCameraStatus" style="font-size:12px;color:var(--muted);"></p>';
+  const status=document.getElementById("barcodeCameraStatus");
+  const seletor=document.getElementById("cameraBarcodeSelect");
+  try {
+    if (!navigator.mediaDevices?.getUserMedia || typeof Html5Qrcode==="undefined") {
+      status.textContent="Leitor de câmera indisponível neste navegador.";
+      return;
+    }
+    camerasBarcode=await Html5Qrcode.getCameras();
+    if(!camerasBarcode.length) {
+      status.textContent="Nenhuma câmera foi encontrada no dispositivo.";
+      return;
+    }
+    const traseiras=camerasBarcode.filter(x=>/back|rear|environment|traseir|ultra|wide|tele/i.test(x.label||""));
+    const ordenadas=[...traseiras,...camerasBarcode.filter(x=>!traseiras.some(t=>t.id===x.id))];
+    camerasBarcode=ordenadas;
+    seletor.innerHTML="";
+    camerasBarcode.forEach((cam,i)=>{
+      const op=document.createElement("option");
+      op.value=cam.id;
+      op.textContent=cam.label || ("Câmera "+(i+1));
+      seletor.appendChild(op);
+    });
+    const preferida=traseiras[0] || camerasBarcode[0];
+    seletor.value=preferida.id;
+    html5QrcodeScanner=new Html5Qrcode("barcodeCameraView",{verbose:false});
+    await iniciarCameraBarcode(preferida.id);
+    seletor.addEventListener("change",()=>iniciarCameraBarcode(seletor.value));
+    document.getElementById("trocarCameraBarcode").addEventListener("click",()=>{
+      const atual=seletor.selectedIndex;
+      seletor.selectedIndex=(atual+1)%seletor.options.length;
+      iniciarCameraBarcode(seletor.value);
+    });
+  } catch(erro) {
+    console.error("Erro ao iniciar leitor:",erro);
+    status.textContent="Não foi possível acessar as câmeras. Confira a permissão do navegador.";
+  }
 }
 
-function fecharScannerBarcode() {
-  if (html5QrcodeScanner) html5QrcodeScanner.clear().catch(e=>{});
-  document.getElementById("modalScanner").style.display = "none";
+async function iniciarCameraBarcode(cameraId) {
+  const status=document.getElementById("barcodeCameraStatus");
+  if(!html5QrcodeScanner) return;
+  try {
+    if(html5QrcodeScanner.isScanning) await html5QrcodeScanner.stop();
+    cameraBarcodeAtual=cameraId;
+    status.textContent="Iniciando câmera selecionada...";
+    await html5QrcodeScanner.start(
+      cameraId,
+      {fps:12,qrbox:{width:280,height:150},aspectRatio:1.777},
+      txt=>{
+        document.getElementById("barcode").value=txt;
+        buscarProdutoPorCodigo(txt);
+        fecharScannerBarcode();
+      },
+      ()=>{}
+    );
+    status.textContent="Aponte a câmera para o código de barras.";
+  } catch(erro) {
+    console.error("Falha ao trocar câmera:",erro);
+    status.textContent="Não foi possível iniciar esta câmera. Selecione outra na lista.";
+  }
+}
+
+async function fecharScannerBarcode() {
+  if(html5QrcodeScanner) {
+    try { if(html5QrcodeScanner.isScanning) await html5QrcodeScanner.stop(); } catch(e) {}
+    try { await html5QrcodeScanner.clear(); } catch(e) {}
+  }
+  html5QrcodeScanner=null;
+  cameraBarcodeAtual=null;
+  document.getElementById("modalScanner").style.display="none";
+  document.getElementById("reader").innerHTML="";
 }
 
 function exportarCSV() {
