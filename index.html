@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CheckProdut | Controle Inteligente de Validade</title>
-  <!-- Biblioteca SheetJS para ler planilhas .xlsx do sistema -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -75,7 +74,7 @@
     .empty { text-align:center; color:var(--muted); padding:35px 10px; font-size:13px; }
     .footer { text-align:center; color:var(--muted); font-size:10px; padding:20px; }
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; padding:15px; }
-    .modal-content { background:white; border-radius:12px; width:100%; max-width:480px; padding:20px; max-height:85vh; overflow-y:auto; }
+    .modal-content { background:white; border-radius:12px; width:100%; max-width:800px; padding:20px; max-height:85vh; overflow-y:auto; }
     .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .modal-head h4 { margin:0; font-size:16px; color:var(--green); }
     .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; }
@@ -95,8 +94,8 @@
       <small>CONTROLE INTELIGENTE DE VALIDADE · PETCAMP</small>
     </div>
   </div>
-  <div>
-    <!-- BOTÃO CORRIGIDO COM LABEL NATIVO -->
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
     <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
       📥 Carregar Relatório da Loja (.xlsx)
       <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv" style="display:none;" onchange="carregarRelatorioLoja(event)">
@@ -255,6 +254,34 @@
   <div class="footer">CheckProdut · Petcamp Sumaré</div>
 </main>
 
+<!-- MODAL BANCO DE DADOS DA LOJA -->
+<div class="modal" id="modalBanco">
+  <div class="modal-content" style="max-width: 900px;">
+    <div class="modal-head">
+      <h4>Banco de Dados Carregado (<span id="totalBancoCount">0</span> itens)</h4>
+      <div style="display:flex; gap:6px;">
+        <button type="button" class="danger" onclick="limparBancoDados()">🗑️ Limpar Banco</button>
+        <button type="button" class="outline icon-btn" onclick="fecharModalBanco()">✕</button>
+      </div>
+    </div>
+    <div style="margin-bottom: 12px;">
+      <input id="buscaBanco" placeholder="Pesquisar no catálogo importado por código ou descrição..." oninput="renderizarTabelaBanco()" style="width:100%;">
+    </div>
+    <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Código / GTIN</th>
+            <th>Descrição do Produto</th>
+            <th>Validade na Planilha</th>
+          </tr>
+        </thead>
+        <tbody id="listaBancoModal"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- MODAIS -->
 <div class="modal" id="modalScanner">
   <div class="modal-content">
@@ -285,8 +312,8 @@
 </div>
 
 <script>
-const CHAVE_PRODUTOS = "checkprodut_produtos_v7";
-const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v7";
+const CHAVE_PRODUTOS = "checkprodut_produtos_v8";
+const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v8";
 
 let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
@@ -300,7 +327,7 @@ function salvar() {
   atualizarListaFuncionarios();
 }
 
-// LER O RELATÓRIO OFICIAL DA LOJA (EX: Relatorio (38).xlsx)
+// LER O RELATÓRIO OFICIAL DA LOJA POR CABEÇALHO (INTELIGENTE)
 function carregarRelatorioLoja(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -313,43 +340,90 @@ function carregarRelatorioLoja(event) {
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
+      if (!rows || rows.length === 0) {
+        alert("A planilha está vazia!");
+        return;
+      }
+
+      // Descobre a linha do cabeçalho automaticamente
+      let headerIdx = 0;
+      let colGtin = -1, colDesc = -1, colVal = -1;
+
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const rowStr = JSON.stringify(rows[i]).toLowerCase();
+        if (rowStr.includes('gtin') || rowStr.includes('codigo') || rowStr.includes('produto') || rowStr.includes('descricao')) {
+          headerIdx = i;
+          const headers = rows[i];
+          headers.forEach((h, idx) => {
+            const hLower = String(h || '').toLowerCase();
+            if (colGtin === -1 && (hLower.includes('gtin') || hLower.includes('código') || hLower.includes('barras') || hLower.includes('ean'))) colGtin = idx;
+            if (colDesc === -1 && (hLower.includes('produto') || hLower.includes('descri') || hLower.includes('item'))) colDesc = idx;
+            if (colVal === -1 && (hLower.includes('validade') || hLower.includes('vencimento'))) colVal = idx;
+          });
+          break;
+        }
+      }
+
+      // Se não achar pelo cabeçalho, usa os índices padrão comuns
+      if (colGtin === -1) colGtin = 4;
+      if (colDesc === -1) colDesc = 3;
+      if (colVal === -1) colVal = 8;
+
       let count = 0;
-      catalogoBase = [];
+      const novoCatalogo = [];
 
-      rows.forEach(row => {
-        if (!row || row.length < 5) return;
-        
-        let gtin = String(row[4] || row[2] || "").trim();
-        let descricao = String(row[3] || "").trim();
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0) continue;
 
-        if (gtin && gtin !== "GTIN" && gtin.length >= 7) {
-          catalogoBase.push({
+        let gtin = String(row[colGtin] || "").trim();
+        let descricao = String(row[colDesc] || "").trim();
+        let validade = row[colVal] ? String(row[colVal]).trim() : "";
+
+        // Limpeza de datas do Excel caso venham em número serial
+        if (validade && !isNaN(validade) && Number(validade) > 30000) {
+          const dExcel = new Date((Number(validade) - (25567 + 2)) * 86400 * 1000);
+          validade = dExcel.toISOString().slice(0, 10);
+        } else if (validade.length >= 10) {
+          validade = validade.slice(0, 10);
+        }
+
+        if (gtin && gtin !== "GTIN" && gtin.length >= 4) {
+          novoCatalogo.push({
             codigo: gtin,
-            codigoInterno: String(row[2] || "").trim(),
-            descricao: descricao,
-            validadeOrigem: row[8] ? String(row[8]).slice(0,10) : ""
+            descricao: descricao || "Produto sem descrição",
+            validadeOrigem: validade.includes("-") ? validade : ""
           });
           count++;
         }
-      });
+      }
 
+      if (count === 0) {
+        alert("Nenhum produto válido encontrado. Verifique se a planilha possui as colunas de GTIN e Descrição.");
+        return;
+      }
+
+      catalogoBase = novoCatalogo;
       localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
-      alert(`🎉 Sucesso! Relatório carregado com ${count} produtos.\nAgora, ao bipar qualquer código, o nome do produto preencherá sozinho!`);
+      
+      // Atualiza o contador no botão do header
+      atualizarContadorBanco();
+      alert(`🎉 Sucesso! Catálogo carregado com ${count} produtos.\nAgora as descrições e validades aparecerão automaticamente ao bipar.`);
 
     } catch (err) {
       console.error(err);
-      alert("Erro ao ler o arquivo da planilha. Tente selecionar o arquivo .xlsx do relatório novamente.");
+      alert("Erro ao ler o arquivo Excel. Verifique se o arquivo está corrompido.");
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
-// BUSCA AUTOMÁTICA DE PRODUTO AO BIPAR O CÓDIGO EAN / GTIN
+// BUSCA AUTOMÁTICA AO BIPAR
 function buscarProdutoPorCodigo(codigo) {
   const ean = codigo.trim();
   if (!ean) return;
 
-  const item = catalogoBase.find(c => c.codigo === ean || c.codigoInterno === ean || ean.includes(c.codigo));
+  const item = catalogoBase.find(c => c.codigo === ean || ean.includes(c.codigo) || c.codigo.includes(ean));
   if (item) {
     document.getElementById("descricao").value = item.descricao;
     autoDetectarSetor(item.descricao);
@@ -358,6 +432,57 @@ function buscarProdutoPorCodigo(codigo) {
       document.getElementById("validade").value = item.validadeOrigem;
     }
   }
+}
+
+// MODAL PARA VISUALIZAR O BANCO DE DADOS CARREGADO
+function abrirModalBanco() {
+  document.getElementById("modalBanco").style.display = "flex";
+  renderizarTabelaBanco();
+}
+
+function fecharModalBanco() {
+  document.getElementById("modalBanco").style.display = "none";
+}
+
+function renderizarTabelaBanco() {
+  const busca = (document.getElementById("buscaBanco")?.value || "").toLowerCase();
+  const tbody = document.getElementById("listaBancoModal");
+  document.getElementById("totalBancoCount").textContent = catalogoBase.length;
+
+  const filtrados = catalogoBase.filter(c => 
+    c.codigo.toLowerCase().includes(busca) || c.descricao.toLowerCase().includes(busca)
+  ).slice(0, 100); // Mostra até 100 resultados para manter leve
+
+  tbody.innerHTML = "";
+  if (filtrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
+    return;
+  }
+
+  filtrados.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="code-badge">${item.codigo}</span></td>
+      <td><strong>${item.descricao}</strong></td>
+      <td>${item.validadeOrigem ? formatarData(item.validadeOrigem) : '<span style="color:var(--muted)">Não informada</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function limparBancoDados() {
+  if (confirm("Deseja apagar todo o catálogo importado da loja?")) {
+    catalogoBase = [];
+    localStorage.removeItem(CHAVE_BASE_CATALOGO);
+    atualizarContadorBanco();
+    fecharModalBanco();
+    alert("Banco de dados limpo com sucesso!");
+  }
+}
+
+function atualizarContadorBanco() {
+  const btn = document.querySelector("header button[onclick='abrirModalBanco()']");
+  if (btn) btn.textContent = `📂 Ver Banco de Dados (${catalogoBase.length} itens)`;
 }
 
 function autoDetectarSetor(descricao) {
@@ -636,6 +761,7 @@ function carregarDadosExemplo() {
   salvar();
 }
 
+atualizarContadorBanco();
 renderizar();
 atualizarListaFuncionarios();
 </script>
