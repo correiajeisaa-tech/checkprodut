@@ -418,11 +418,11 @@ async function importarPDF(file) {
     const validade = dataItem.texto.match(/\b\d{2}\/\d{2}\/\d{4}\b/)?.[0];
     const data = interpretarDataValidade(validade);
     if (!data) continue;
-    const descricaoItens = linha.itens.filter(x=>x.x>(posDesc ?? posGtin)-3 && x.x<posVal-3 && x!==gtinItem);
+    const descricaoItens = linha.itens.filter(x=>posDesc!=null && x.x>posDesc-3 && x.x<posGtin-3);
     let descricao = descricaoItens.map(x=>x.texto).join(" ").trim();
     if (!descricao) {
       const idx = linha.itens.indexOf(gtinItem);
-      descricao = linha.itens.slice(idx+1).filter(x=>x.x<posVal-3).map(x=>x.texto).join(" ").trim();
+      descricao = linha.itens.filter(x=>x.x<posGtin-3 && x.x>(posDesc ?? -Infinity)-3).map(x=>x.texto).join(" ").trim();
     }
     dados.push({codigo,descricao:descricao||"Produto sem descrição",validade:[data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-")});
   }
