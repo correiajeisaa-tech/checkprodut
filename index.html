@@ -403,12 +403,12 @@ function carregarRelatorioLoja(event) {
         const temDescricao = nomes.some(h => /produto|descri|item/.test(h));
         if (temGtin && temDescricao) {
           headerIdx = i;
-          headers.forEach((h, idx) => {
-            const hLower = normalizarCabecalho(h);
-            if (colGtin === -1 && /gtin|ean|codigo|barras/.test(hLower)) colGtin = idx;
-            if (colDesc === -1 && /produto|descri|item/.test(hLower)) colDesc = idx;
-            if (colVal === -1 && /validade|vencimento/.test(hLower)) colVal = idx;
-          });
+          // Prioriza GTIN/EAN/código de barras; evita confundir com código interno.
+          const indiceGtin = nomes.findIndex(h => /gtin|ean|codigo.*barra|barras/.test(h));
+          const indiceCodigo = nomes.findIndex(h => /^codigo$|codigo do produto|cod\. produto/.test(h));
+          colGtin = indiceGtin >= 0 ? indiceGtin : indiceCodigo;
+          colDesc = nomes.findIndex(h => /descricao|produto|item/.test(h));
+          colVal = nomes.findIndex(h => /validade|vencimento/.test(h));
           break;
         }
       }
@@ -424,7 +424,7 @@ function carregarRelatorioLoja(event) {
       for (let i = headerIdx + 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row.length) continue;
-        const gtin = String(row[colGtin] ?? "").trim().replace(/\\.0$/, "").replace(/\\s+/g, "");
+        const gtin = String(row[colGtin] ?? "").trim().replace(/\.0$/, "").replace(/\s+/g, "").replace(/[^0-9]/g, "");
         const descricao = String(row[colDesc] ?? "").trim();
         const dataValidade = interpretarDataValidade(row[colVal]);
         const validade = dataValidade
@@ -469,7 +469,7 @@ function carregarRelatorioLoja(event) {
       let acompanhamentosNovos = 0;
       novosAcompanhamentos.forEach(item => {
         const jaExiste = produtos.some(p =>
-          String(p.barcode || "").replace(/\\s+/g, "") === item.barcode &&
+          String(p.barcode || "").replace(/\s+/g, "").replace(/[^0-9]/g, "") === item.barcode &&
           interpretarDataValidade(p.validade)?.getTime() === interpretarDataValidade(item.validade)?.getTime() &&
           String(p.descricao || "").trim().toLowerCase() === item.descricao.trim().toLowerCase()
         );
@@ -498,7 +498,8 @@ function carregarRelatorioLoja(event) {
 
       atualizarContadorBanco();
       renderizarTabelaBanco();
-      alert(`Importação concluída!\n\nNovos registros no catálogo: ${adicionados}\nRegistros já existentes ignorados: ${repetidos}\nItens enviados para controle de validade: ${acompanhamentosNovos}\nLinhas com validade reconhecida: ${novosAcompanhamentos.length}\nTotal acumulado no banco: ${catalogoBase.length}`);
+      const datasInvalidas = count - novosAcompanhamentos.length;
+      alert(`Importação concluída!\n\nLinhas com código: ${count}\nNovos registros no catálogo: ${adicionados}\nRegistros repetidos: ${repetidos}\nLinhas com validade reconhecida: ${novosAcompanhamentos.length}\nNovos produtos no acompanhamento: ${acompanhamentosNovos}\nLinhas sem validade reconhecida: ${datasInvalidas}\nTotal acumulado no banco: ${catalogoBase.length}\n\nConfira os totais antes de fechar esta mensagem.`);
 
       // Permite selecionar novamente o mesmo arquivo se necessário.
       event.target.value = "";
@@ -697,7 +698,11 @@ function renderizarTabelaBanco() {
   document.getElementById("totalBancoCount").textContent = catalogoBase.length;
   const filtrados = catalogoBase.filter(c =>
     String(c.codigo || "").toLowerCase().includes(busca) || String(c.descricao || "").toLowerCase().includes(busca)
-  ).slice(0, 100);
+  ).sort((a,b) => {
+    const da = String(a.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
+    const db = String(b.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
+    return da - db || String(a.descricao || "").localeCompare(String(b.descricao || ""), "pt-BR");
+  });
   tbody.innerHTML = "";
   if (filtrados.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
@@ -862,7 +867,7 @@ document.getElementById("formProduto").addEventListener("submit", function(e) {
   // Todo cadastro com GTIN e descrição válida alimenta o catálogo compartilhado.
   // Se o código já existir sem descrição, completa os registros pendentes;
   // se ainda não existir, cria uma entrada para consultas futuras.
-  const gtin = String(p.barcode || "").trim();
+  const gtin = String(p.barcode || "").trim().replace(/\s+/g, "").replace(/[^0-9]/g, "");
   const descricaoProduto = String(p.descricao || "").trim();
   if (gtin && descricaoProduto && descricaoAusente(descricaoProduto) === false) {
     const registrosDoCodigo = catalogoBase.filter(item => String(item.codigo || "").trim() === gtin);
