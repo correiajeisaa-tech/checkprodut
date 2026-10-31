@@ -1,305 +1,112 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CheckProdut | Controle Inteligente</title>
-<style>
-:root {
-  --green:#173d32;
-  --green2:#245846;
-  --lime:#b8d86a;
-  --bg:#f4f6f3;
-  --white:#fff;
-  --text:#24332d;
-  --muted:#78847e;
-  --border:#e5eae5;
-  --red:#c94b4b;
-  --orange:#d18a32;
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--text)}
-header{background:var(--green);color:white;padding:22px 5%;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:12px}
-.logo{width:43px;height:43px;background:var(--lime);color:var(--green);border-radius:12px;display:grid;place-items:center;font-size:23px;font-weight:bold}
-.brand h1{font-size:23px;margin:0}
-.brand small{display:block;color:#c5d6cc;margin-top:4px;font-size:11px;letter-spacing:1px}
-.header-right{font-size:12px;color:#d6e3dc}
-main{max-width:1250px;margin:28px auto;padding:0 20px}
-.welcome{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:22px}
-h2{margin:0 0 6px;font-size:24px}
-.subtitle{color:var(--muted);font-size:13px}
-button{border:0;border-radius:9px;padding:11px 16px;font-weight:bold;cursor:pointer;font-size:13px}
-.primary{background:var(--green);color:white}
-.primary:hover{background:var(--green2)}
-.secondary{background:#e8eee9;color:var(--green)}
-.danger{background:#fae9e8;color:#a83c3c}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.card{background:white;padding:19px;border:1px solid var(--border);border-radius:13px}
-.card small{color:var(--muted);font-size:12px}
-.number{font-size:29px;font-weight:bold;margin-top:10px}
-.card.green .number{color:var(--green)}
-.card.orange .number{color:var(--orange)}
-.card.red .number{color:var(--red)}
-.panel{background:white;border:1px solid var(--border);border-radius:13px;padding:20px;margin-bottom:20px}
-.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:17px}
-.panel h3{margin:0;font-size:17px}
-.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-label{display:block;font-size:12px;font-weight:bold;margin-bottom:7px;color:#526159}
-input,select{width:100%;padding:12px;border:1px solid #dce4dd;border-radius:8px;background:white;font-size:14px;color:var(--text);outline:none}
-input:focus,select:focus{border-color:var(--green)}
-.field-actions{display:flex;gap:7px}
-.field-actions input{flex:1;min-width:0}
-.form-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:17px}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:760px}
-th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:12px 10px;border-bottom:1px solid var(--border)}
-td{padding:13px 10px;border-bottom:1px solid var(--border);font-size:13px}
-tr:last-child td{border-bottom:0}
-.tag{display:inline-block;padding:6px 9px;border-radius:20px;font-size:11px;font-weight:bold}
-.tag.ok{background:#e7f3e9;color:#267044}
-.tag.warn{background:#fff1dc;color:#a66b13}
-.tag.urgent{background:#fbe7e6;color:#b23b39}
-.tag.done{background:#e9edf0;color:#52616a}
-.actions{display:flex;gap:6px;flex-wrap:wrap}
-.actions button{padding:7px 9px;font-size:11px}
-.empty{text-align:center;color:var(--muted);padding:35px 10px;font-size:13px}
-.footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
-.hidden{display:none}
-@media(max-width:800px){.cards{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){main{padding:0 12px;margin-top:20px}.cards{gap:9px}.card{padding:14px}.number{font-size:24px}.form-grid{grid-template-columns:1fr}.welcome h2{font-size:21px}.panel{padding:14px}}
-</style>
-</head>
-<body>
-<header>
-  <div class="brand">
-    <div class="logo">C</div>
-    <div>
-      <h1>CheckProdut</h1>
-      <small>CONTROLE INTELIGENTE DE PRODUTOS</small>
-    </div>
-  </div>
-  <div class="header-right">PETCAMP · CONTROLE DE VALIDADE</div>
-</header>
-
-<main>
-  <div class="welcome">
-    <div>
-      <h2>Painel de controle</h2>
-      <div class="subtitle">Acompanhe os produtos e as alterações de etiquetas.</div>
-    </div>
-    <button class="primary" onclick="document.getElementById('cadastro').scrollIntoView({behavior:'smooth'})">+ Cadastrar produto</button>
-  </div>
-
-  <section class="cards">
-    <div class="card green"><small>Produtos cadastrados</small><div class="number" id="total">0</div></div>
-    <div class="card orange"><small>Alerta de 15%</small><div class="number" id="alerta15">0</div></div>
-    <div class="card red"><small>Alerta de 30%</small><div class="number" id="alerta30">0</div></div>
-    <div class="card"><small>Etiquetas atualizadas</small><div class="number" id="atualizados">0</div></div>
-  </section>
-
-  <section class="panel" id="cadastro">
-    <div class="panel-head">
-      <h3>Cadastro de produto</h3>
-      <span class="subtitle">Preencha os dados do produto</span>
-    </div>
-    <form id="formProduto">
-      <div class="form-grid">
-        <div>
-          <label for="barcode">Código de barras</label>
-          <input id="barcode" placeholder="Digite ou use o leitor" required>
-        </div>
-        <div>
-          <label for="descricao">Descrição do produto</label>
-          <input id="descricao" placeholder="Nome do produto" required>
-        </div>
-        <div>
-          <label for="peso">Peso / apresentação</label>
-          <input id="peso" placeholder="Ex.: 10 kg">
-        </div>
-        <div>
-          <label for="especie">Espécie</label>
-          <select id="especie">
-            <option value="">Selecione</option>
-            <option>Cachorro</option>
-            <option>Gato</option>
-            <option>Ambos</option>
-            <option>Outros</option>
-          </select>
-        </div>
-        <div>
-          <label for="quantidade">Quantidade</label>
-          <input id="quantidade" type="number" min="1" placeholder="Quantidade" required>
-        </div>
-        <div>
-          <label for="validade">Data de validade</label>
-          <input id="validade" type="date" required>
-        </div>
-        <div>
-          <label for="setor">Setor da loja</label>
-          <input id="setor" placeholder="Ex.: Rações">
-        </div>
-        <div>
-          <label for="funcionario">Funcionário responsável</label>
-          <input id="funcionario" placeholder="Nome do funcionário">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button type="reset" class="secondary">Limpar</button>
-        <button type="submit" class="primary">Salvar produto</button>
-      </div>
-    </form>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <h3>Produtos acompanhados</h3>
-        <div class="subtitle">Produtos que precisam de atenção e controle de etiqueta.</div>
-      </div>
-      <button class="secondary" onclick="exportar()">Exportar CSV</button>
-    </div>
-    <div style="margin-bottom:15px">
-      <input id="busca" placeholder="Pesquisar por produto, código ou setor..." oninput="renderizar()">
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Produto</th><th>Setor</th><th>Quantidade</th><th>Validade</th><th>Dias restantes</th><th>Situação</th><th>Ações</th>
-          </tr>
-        </thead>
-        <tbody id="lista"></tbody>
-      </table>
-      <div id="vazio" class="empty">Nenhum produto cadastrado. Comece adicionando um produto acima.</div>
-    </div>
-  </section>
-  <div class="footer">CheckProdut · Controle inteligente de validade · Versão inicial</div>
-</main>
-
-<script>
-const CHAVE = "checkprodut_produtos_v1";
-let produtos = JSON.parse(localStorage.getItem(CHAVE) || "[]");
-
-function salvar(){
-  localStorage.setItem(CHAVE, JSON.stringify(produtos));
-  renderizar();
-}
-
-function diasRestantes(data){
-  const hoje = new Date();
-  hoje.setHours(0,0,0,0);
-  const validade = new Date(data + "T00:00:00");
-  return Math.ceil((validade - hoje) / 86400000);
-}
-
-function situacao(p){
-  const dias = diasRestantes(p.validade);
-  if(dias <= 90) return {texto:"Alterar etiqueta · 30%",classe:"urgent",faixa:30};
-  if(dias <= 120) return {texto:"Alterar etiqueta · 15%",classe:"warn",faixa:15};
-  return {texto:"Acompanhamento",classe:"ok",faixa:0};
-}
-
-function formatarData(data){
-  return new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
-}
-
-document.getElementById("formProduto").addEventListener("submit",function(e){
-  e.preventDefault();
-  const p = {
-    id: Date.now(),
-    barcode: document.getElementById("barcode").value.trim(),
-    descricao: document.getElementById("descricao").value.trim(),
-    peso: document.getElementById("peso").value.trim(),
-    especie: document.getElementById("especie").value,
-    quantidade: Number(document.getElementById("quantidade").value),
-    validade: document.getElementById("validade").value,
-    setor: document.getElementById("setor").value.trim(),
-    funcionario: document.getElementById("funcionario").value.trim(),
-    etiquetaAtualizada: false
-  };
-  produtos.push(p);
-  salvar();
-  this.reset();
-  alert("Produto cadastrado com sucesso!");
-});
-
-function marcarAtualizada(id){
-  const p = produtos.find(x => x.id === id);
-  if(!p) return;
-  p.etiquetaAtualizada = !p.etiquetaAtualizada;
-  p.dataAtualizacao = p.etiquetaAtualizada ? new Date().toISOString() : null;
-  salvar();
-}
-
-function excluir(id){
-  if(!confirm("Deseja realmente excluir este registro?")) return;
-  produtos = produtos.filter(p => p.id !== id);
-  salvar();
-}
-
-function renderizar(){
-  const busca = (document.getElementById("busca")?.value || "").toLowerCase();
-  const filtrados = produtos.filter(p =>
-    [p.barcode,p.descricao,p.setor,p.funcionario].join(" ").toLowerCase().includes(busca)
-  );
-  document.getElementById("total").textContent = produtos.length;
-  document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
-  document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
-  document.getElementById("atualizados").textContent = produtos.filter(p => p.etiquetaAtualizada).length;
-
-  const tbody = document.getElementById("lista");
-  tbody.innerHTML = "";
-  document.getElementById("vazio").style.display = filtrados.length ? "none" : "block";
-
-  filtrados.sort((a,b) => diasRestantes(a.validade)-diasRestantes(b.validade));
-
-  filtrados.forEach(p => {
-    const dias = diasRestantes(p.validade);
-    const s = situacao(p);
-    const status = p.etiquetaAtualizada
-      ? '<span class="tag done">Etiqueta atualizada</span>'
-      : `<span class="tag ${s.classe}">${s.texto}</span>`;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><strong>${escapar(p.descricao)}</strong><br><small>${escapar(p.barcode)}</small></td>
-      <td>${escapar(p.setor || "—")}</td>
-      <td>${p.quantidade}</td>
-      <td>${formatarData(p.validade)}</td>
-      <td>${dias < 0 ? "Vencido há " + Math.abs(dias) + " dias" : dias + " dias"}</td>
-      <td>${status}</td>
-      <td><div class="actions">
-        <button class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Marcar feita"}</button>
-        <button class="danger" onclick="excluir(${p.id})">Excluir</button>
-      </div></td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-function escapar(v){
-  return String(v || "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[c]));
-}
-
-function exportar(){
-  if(!produtos.length){alert("Não existem produtos para exportar.");return;}
-  const linhas = [["Código","Produto","Peso","Espécie","Quantidade","Validade","Setor","Funcionário","Dias restantes","Situação","Etiqueta atualizada"]];
-  produtos.forEach(p => {
-    linhas.push([p.barcode,p.descricao,p.peso,p.especie,p.quantidade,formatarData(p.validade),p.setor,p.funcionario,diasRestantes(p.validade),situacao(p).texto,p.etiquetaAtualizada ? "Sim" : "Não"]);
-  });
-  const csv = "\uFEFF" + linhas.map(l => l.map(v => '"' + String(v ?? "").replace(/"/g,'""') + '"').join(";")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "CheckProdut_produtos.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-renderizar();
-</script>
-</body>
-</html>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CheckProdut | Controle Inteligente de Validade</title>
+  <!-- Tesseract OCR para leitura de imagem -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <!-- HTML5-QRCode para leitura de código de barras -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    :root {
+      --green:#173d32;
+      --green2:#245846;
+      --lime:#b8d86a;
+      --bg:#f4f6f3;
+      --white:#ffffff;
+      --text:#24332d;
+      --muted:#66756e;
+      --border:#dce3de;
+      --red:#c94b4b;
+      --orange:#d18a32;
+      --blue:#2b6cb0;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color:var(--text); }
+    
+    header { background:var(--green); color:white; padding:18px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .logo { width:44px; height:44px; background:var(--lime); color:var(--green); border-radius:12px; display:grid; place-items:center; font-size:24px; font-weight:900; }
+    .brand h1 { font-size:22px; margin:0; font-weight:800; letter-spacing:-0.5px; }
+    .brand small { display:block; color:#c5d6cc; margin-top:2px; font-size:11px; letter-spacing:1px; }
+    .header-right { display:flex; align-items:center; gap:12px; }
+    
+    main { max-width:1250px; margin:24px auto; padding:0 20px; }
+    
+    .welcome { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:20px; }
+    h2 { margin:0 0 4px; font-size:24px; color:var(--green); }
+    .subtitle { color:var(--muted); font-size:13px; }
+    
+    button { border:0; border-radius:8px; padding:10px 16px; font-weight:700; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; }
+    .primary { background:var(--green); color:white; }
+    .primary:hover { background:var(--green2); }
+    .secondary { background:#e2eae4; color:var(--green); }
+    .secondary:hover { background:#d3ded6; }
+    .danger { background:#fae9e8; color:#a83c3c; }
+    .danger:hover { background:#f5d5d3; }
+    .outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+    .outline:hover { background:#fff; border-color:var(--muted); }
+    
+    .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+    .card { background:white; padding:18px; border:1px solid var(--border); border-radius:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .card small { color:var(--muted); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+    .number { font-size:30px; font-weight:800; margin-top:8px; line-height:1; }
+    .card.green .number { color:var(--green); }
+    .card.orange .number { color:var(--orange); }
+    .card.red .number { color:var(--red); }
+    .card.blue .number { color:var(--blue); }
+    
+    .panel { background:white; border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .panel-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; border-bottom:1px solid #f0f4f1; padding-bottom:12px; }
+    .panel h3 { margin:0; font-size:17px; color:var(--green); font-weight:700; }
+    
+    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    label { display:block; font-size:12px; font-weight:700; margin-bottom:6px; color:#415249; }
+    input, select { width:100%; padding:11px 13px; border:1px solid #c8d4cb; border-radius:8px; background:white; font-size:14px; color:var(--text); outline:none; transition:border 0.2s; }
+    input:focus, select:focus { border-color:var(--green); box-shadow: 0 0 0 3px rgba(23,61,50,0.1); }
+    
+    .input-with-btn { display:flex; gap:6px; }
+    .input-with-btn input { flex:1; }
+    .icon-btn { padding:0 12px; height:41px; font-size:16px; }
+    
+    .form-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+    
+    .tabs-setores { display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:14px; }
+    .tab-item { padding:8px 14px; border-radius:20px; background:#eef3ef; font-size:12px; font-weight:700; color:var(--muted); cursor:pointer; white-space:nowrap; border:1px solid transparent; }
+    .tab-item.active { background:var(--green); color:white; }
+    
+    .code-badge { font-family: monospace; font-size: 13px; font-weight: 700; background: #eef3ef; padding: 3px 7px; border-radius: 5px; color: #1e3a2b; border: 1px solid #d4dfd7; display: inline-block; letter-spacing: 0.5px; }
+    
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:850px; }
+    th { text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.5px; padding:12px 10px; border-bottom:2px solid var(--border); font-weight:700; }
+    td { padding:12px 10px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+    tr:last-child td { border-bottom:0; }
+    tr:hover td { background:#fafcfb; }
+    
+    .tag { display:inline-block; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .tag.ok { background:#e7f3e9; color:#267044; }
+    .tag.warn { background:#fff1dc; color:#a66b13; }
+    .tag.urgent { background:#fbe7e6; color:#b23b39; }
+    .tag.done { background:#e9edf0; color:#52616a; }
+    .tag.setor { background:#e4eff0; color:#215a6b; font-weight:600; }
+    
+    .actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .actions button { padding:6px 10px; font-size:11px; }
+    
+    .empty { text-align:center; color:var(--muted); padding:40px 10px; font-size:14px; }
+    .footer { text-align:center; color:var(--muted); font-size:11px; padding:24px; }
+    
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center; padding:15px; }
+    .modal-content { background:white; border-radius:12px; width:100%; max-width:500px; padding:20px; max-height:90vh; overflow-y:auto; }
+    .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
+    .modal-head h4 { margin:0; font-size:16px; color:var(--green); }
+    
+    .camera-box { width:100%; height:250px; background:#000; border-radius:8px; overflow:hidden; position:relative; }
+    .camera-box video { width:100%; height:100%; object-fit:cover; }
+    
+    .badge-auto { font-size: 10px; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
+    
+    @media(max-width:900px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
+    @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:1fr;} .form-grid{grid
