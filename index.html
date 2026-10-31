@@ -292,9 +292,11 @@
         <button type="button" class="outline icon-btn" onclick="fecharModalBanco()">✕</button>
       </div>
     </div>
-    <div style="margin-bottom: 12px;">
-      <input id="buscaBanco" placeholder="Pesquisar no catálogo importado por código ou descrição..." oninput="renderizarTabelaBanco()" style="width:100%;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input id="buscaBanco" placeholder="Pesquisar no catálogo importado por código ou descrição..." oninput="renderizarTabelaBanco()" style="flex:1;min-width:220px;">
+      <button type="button" class="primary" id="btnCompletarDescricoes" onclick="completarDescricoesLote()">✨ Completar descrições automaticamente</button>
     </div>
+    <div id="statusCompletarDescricoes" style="font-size:12px;color:var(--muted);margin-bottom:10px;" aria-live="polite"></div>
     <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
       <table>
         <thead>
@@ -302,6 +304,7 @@
             <th>Código / GTIN</th>
             <th>Descrição do Produto</th>
             <th>Validade na Planilha</th>
+            <th>Revisão</th>
           </tr>
         </thead>
         <tbody id="listaBancoModal"></tbody>
@@ -568,6 +571,56 @@ async function buscarProdutoPorCodigo(codigo) {
   }, 550);
 }
 
+// Pesquisa descrições ausentes em bases públicas e grava somente resultados encontrados.
+const pausa = ms => new Promise(resolve => setTimeout(resolve, ms));
+function descricaoAusente(valor) {
+  return !String(valor || "").trim() || String(valor).trim().toLowerCase() === "produto sem descrição";
+}
+async function completarDescricoesLote() {
+  const btn = document.getElementById("btnCompletarDescricoes");
+  const status = document.getElementById("statusCompletarDescricoes");
+  const pendentes = catalogoBase.filter(item => descricaoAusente(item.descricao) && /^\\d{8,14}$/.test(String(item.codigo || "").trim()));
+  if (!pendentes.length) {
+    status.textContent = "Não há produtos com descrição pendente e código válido.";
+    return;
+  }
+  if (!confirm("Vou pesquisar " + pendentes.length + " produto(s). O processo pode levar alguns minutos. Deseja continuar?")) return;
+  btn.disabled = true;
+  let encontrados = 0, naoEncontrados = 0;
+  try {
+    for (let i=0; i<pendentes.length; i++) {
+      const item = pendentes[i];
+      status.textContent = "Pesquisando " + (i+1) + " de " + pendentes.length + " · GTIN " + item.codigo + " · encontrados: " + encontrados;
+      const descricao = await pesquisarDescricaoNaInternet(String(item.codigo).trim());
+      if (descricao) {
+        // Revalida o registro original para nunca sobrescrever uma descrição já corrigida.
+        const atual = catalogoBase.find(x => String(x.codigo) === String(item.codigo) && descricaoAusente(x.descricao));
+        if (atual) {
+          atual.descricao = descricao;
+          atual.origemDescricao = "consulta pública";
+          encontrados++;
+          localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+          await window.CheckProdutCloud?.saveCatalog(catalogoBase);
+        } else {
+          naoEncontrados++;
+        }
+      } else {
+        naoEncontrados++;
+      }
+      renderizarTabelaBanco();
+      // Respeita o limite público de consultas; evita disparos em massa.
+      if (i < pendentes.length-1) await pausa(4300);
+    }
+    status.textContent = "Concluído! " + encontrados + " descrição(ões) preenchida(s); " + naoEncontrados + " sem resultado. Confira os nomes antes de usar.";
+    atualizarContadorBanco();
+  } catch (erro) {
+    console.error("Erro ao completar catálogo:", erro);
+    status.textContent = "O processo foi interrompido por uma falha. Os resultados já encontrados foram salvos; tente novamente mais tarde.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // MODAL PARA VISUALIZAR O BANCO DE DADOS CARREGADO
 function abrirModalBanco() {
   document.getElementById("modalBanco").style.display = "flex";
@@ -578,28 +631,52 @@ function fecharModalBanco() {
   document.getElementById("modalBanco").style.display = "none";
 }
 
+function editarDescricaoCatalogo(codigo) {
+  const item = catalogoBase.find(x => String(x.codigo) === String(codigo));
+  if (!item) return;
+  const nova = prompt("Corrija a descrição do produto (GTIN " + codigo + "):", item.descricao || "");
+  if (nova === null) return;
+  const texto = nova.trim();
+  if (!texto) { alert("A descrição não pode ficar vazia."); return; }
+  item.descricao = texto;
+  item.origemDescricao = "revisada manualmente";
+  localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+  window.CheckProdutCloud?.saveCatalog(catalogoBase);
+  renderizarTabelaBanco();
+  atualizarContadorBanco();
+}
+
 function renderizarTabelaBanco() {
   const busca = (document.getElementById("buscaBanco")?.value || "").toLowerCase();
   const tbody = document.getElementById("listaBancoModal");
   document.getElementById("totalBancoCount").textContent = catalogoBase.length;
-
-  const filtrados = catalogoBase.filter(c => 
-    c.codigo.toLowerCase().includes(busca) || c.descricao.toLowerCase().includes(busca)
-  ).slice(0, 100); // Mostra até 100 resultados para manter leve
-
+  const filtrados = catalogoBase.filter(c =>
+    String(c.codigo || "").toLowerCase().includes(busca) || String(c.descricao || "").toLowerCase().includes(busca)
+  ).slice(0, 100);
   tbody.innerHTML = "";
   if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
     return;
   }
-
   filtrados.forEach(item => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><span class="code-badge">${item.codigo}</span></td>
-      <td><strong>${item.descricao}</strong></td>
-      <td>${item.validadeOrigem ? formatarData(item.validadeOrigem) : '<span style="color:var(--muted)">Não informada</span>'}</td>
-    `;
+    const tdCodigo = document.createElement("td");
+    const codigo = document.createElement("span");
+    codigo.className = "code-badge";
+    codigo.textContent = item.codigo || "";
+    tdCodigo.appendChild(codigo);
+    const tdDescricao = document.createElement("td");
+    tdDescricao.textContent = item.descricao || "Produto sem descrição";
+    const tdValidade = document.createElement("td");
+    tdValidade.textContent = item.validadeOrigem ? formatarData(item.validadeOrigem) : "Não informada";
+    const tdAcao = document.createElement("td");
+    const editar = document.createElement("button");
+    editar.type = "button";
+    editar.className = "secondary";
+    editar.textContent = "✏️ Editar";
+    editar.onclick = () => editarDescricaoCatalogo(item.codigo);
+    tdAcao.appendChild(editar);
+    tr.append(tdCodigo,tdDescricao,tdValidade,tdAcao);
     tbody.appendChild(tr);
   });
 }
