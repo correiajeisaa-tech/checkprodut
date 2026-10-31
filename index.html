@@ -165,7 +165,7 @@
         <div>
           <label for="barcode">Código de Barras (GTIN / EAN)</label>
           <div class="input-with-btn">
-            <input id="barcode" placeholder="Bipe ou digite o código" required oninput="buscarProdutoPorCodigo(this.value)">
+            <input id="barcode" placeholder="Bipe ou digite o código" required oninput="buscarProdutoPorCodigo(this.value)" onchange="buscarProdutoPorCodigo(this.value)" onpaste="setTimeout(() => buscarProdutoPorCodigo(this.value), 0)">
             <button type="button" class="secondary icon-btn" title="Ler Código com Câmera" onclick="abrirScannerBarcode()">📷</button>
           </div>
         </div>
@@ -495,7 +495,7 @@ function carregarRelatorioLoja(event) {
 
       atualizarContadorBanco();
       renderizarTabelaBanco();
-      alert(`🎉 Importação concluída!\n\nNovos registros adicionados: ${adicionados}\nRegistros já existentes ignorados: ${repetidos}\nTotal acumulado no banco: ${catalogoBase.length}\n\nItens enviados para controle de validade: ${acompanhamentosNovos}\\nLinhas com validade identificada: ${novosAcompanhamentos.length}.`);
+      alert(`Importação concluída!\n\nNovos registros no catálogo: ${adicionados}\nRegistros já existentes ignorados: ${repetidos}\nItens enviados para controle de validade: ${acompanhamentosNovos}\nLinhas com validade reconhecida: ${novosAcompanhamentos.length}\nTotal acumulado no banco: ${catalogoBase.length}`);
 
       // Permite selecionar novamente o mesmo arquivo se necessário.
       event.target.value = "";
@@ -580,19 +580,20 @@ async function buscarProdutoPorCodigo(codigo) {
     return;
   }
 
-  // Não repete consultas para o mesmo código enquanto o funcionário digita.
+  // Permite nova tentativa quando a consulta anterior falhar.
   if (ultimaBuscaInternet === ean) return;
   timerBuscaInternet = setTimeout(async () => {
     if (campoCodigo.value.replace(/\s+/g, "").trim() !== ean) return;
-    ultimaBuscaInternet = ean;
     mostrarStatusDescricao("Não consta no banco. Pesquisando nas bases públicas...");
     const descricao = await pesquisarDescricaoNaInternet(ean);
     if (campoCodigo.value.replace(/\s+/g, "").trim() !== ean) return;
 
     if (!descricao) {
-      mostrarStatusDescricao("Não encontrei esse EAN nas bases públicas. Digite a descrição manualmente.", true);
+      ultimaBuscaInternet = "";
+      mostrarStatusDescricao("Não encontrei esse EAN nas bases públicas. Confira o código ou digite a descrição manualmente.", true);
       return;
     }
+    ultimaBuscaInternet = ean;
 
     // Preenche automaticamente, mas deixa o campo livre para correção pelo funcionário.
     campoDescricao.value = descricao;
@@ -1304,9 +1305,11 @@ async function seedCollection(name, localItems, remoteDocs) {
   const remote = new Map(remoteDocs.map(d => [String(d.id), d]));
   const local = Array.isArray(localItems) ? localItems : [];
   const merged = new Map(remote);
-  local.forEach(item => {
-    const key = String(item.id ?? item.codigo ?? "");
-    if (key && !merged.has(key)) merged.set(key, item);
+  local.forEach((item,index) => {
+    const key = String(item.id ?? (name === "checkprodut_catalogo"
+      ? String(item.codigo ?? "") + "__" + String(item.validadeOrigem ?? "sem-validade") + "__" + index
+      : item.id ?? ""));
+    if (key && !merged.has(key)) merged.set(key, { ...item, id: item.id ?? key });
   });
   if (merged.size > remote.size) {
     const batch = writeBatch(db);
