@@ -521,7 +521,7 @@ async function pesquisarDescricaoNaInternet(ean) {
       const nome = String(p.product_name_pt || p.product_name || p.abbreviated_product_name || "").trim();
       if (!nome || nome.length < 3) continue;
       const detalhes = [p.brands, p.quantity].filter(Boolean).join(" ");
-      const descricao = [nome, detalhes].filter(Boolean).join(" - ").replace(/\\s+/g, " ").trim();
+      const descricao = [nome, detalhes].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
       cacheBuscaInternet.set(ean, descricao);
       return descricao;
     } catch (erro) {
@@ -532,43 +532,68 @@ async function pesquisarDescricaoNaInternet(ean) {
 }
 
 async function buscarProdutoPorCodigo(codigo) {
-  const ean = String(codigo || "").trim();
-  if (!ean) return;
+  const ean = String(codigo || "").replace(/\s+/g, "").trim();
   const campoDescricao = document.getElementById("descricao");
-  const item = catalogoBase.find(c => String(c.codigo || "") === ean);
-  if (item && item.descricao && item.descricao !== "Produto sem descrição") {
-    campoDescricao.value = item.descricao;
-    autoDetectarSetor(item.descricao);
-    mostrarStatusDescricao("Descrição encontrada no banco da loja.");
-    if (item.validadeOrigem && item.validadeOrigem.includes("-")) {
-      document.getElementById("validade").value = item.validadeOrigem;
-    }
+  const campoCodigo = document.getElementById("barcode");
+  if (!campoDescricao || !campoCodigo) return;
+  if (!ean) {
+    clearTimeout(timerBuscaInternet);
+    ultimaBuscaInternet = "";
+    mostrarStatusDescricao("");
     return;
   }
 
-  if (!/^\\d{8,14}$/.test(ean)) return;
+  // Aguarda o leitor terminar de enviar todos os dígitos antes de consultar.
   clearTimeout(timerBuscaInternet);
-  timerBuscaInternet = setTimeout(async () => {
-    if (document.getElementById("barcode").value.trim() !== ean || ultimaBuscaInternet === ean) return;
+  if (!/^\d{8,14}$/.test(ean)) {
+    mostrarStatusDescricao("Aguardando o código completo (8 a 14 números)...");
+    return;
+  }
+
+  // Primeiro consulta o catálogo local já sincronizado com a nuvem.
+  const item = catalogoBase.find(c => String(c.codigo || "").replace(/\s+/g, "").trim() === ean
+    && !descricaoAusente(c.descricao));
+  if (item) {
+    campoDescricao.value = item.descricao;
+    autoDetectarSetor(item.descricao);
+    mostrarStatusDescricao("Descrição encontrada no banco da loja.");
+    if (item.validadeOrigem && /^\d{4}-\d{2}-\d{2}$/.test(item.validadeOrigem)) {
+      document.getElementById("validade").value = item.validadeOrigem;
+    }
     ultimaBuscaInternet = ean;
-    mostrarStatusDescricao("Não consta no banco. Pesquisando descrição na internet...");
+    return;
+  }
+
+  // Não repete consultas para o mesmo código enquanto o funcionário digita.
+  if (ultimaBuscaInternet === ean) return;
+  timerBuscaInternet = setTimeout(async () => {
+    if (campoCodigo.value.replace(/\s+/g, "").trim() !== ean) return;
+    ultimaBuscaInternet = ean;
+    mostrarStatusDescricao("Não consta no banco. Pesquisando nas bases públicas...");
     const descricao = await pesquisarDescricaoNaInternet(ean);
-    if (document.getElementById("barcode").value.trim() !== ean) return;
+    if (campoCodigo.value.replace(/\s+/g, "").trim() !== ean) return;
+
     if (!descricao) {
       mostrarStatusDescricao("Não encontrei esse EAN nas bases públicas. Digite a descrição manualmente.", true);
       return;
     }
+
+    // Preenche automaticamente, mas deixa o campo livre para correção pelo funcionário.
     campoDescricao.value = descricao;
     autoDetectarSetor(descricao);
-    mostrarStatusDescricao("Descrição encontrada na internet e salva no banco da loja.");
-    const registro = item || {codigo: ean, validadeOrigem: ""};
-    registro.descricao = descricao;
-    if (!item) catalogoBase.push(registro);
+    mostrarStatusDescricao("Descrição sugerida pela internet. Confira ou corrija antes de salvar.");
+
+    // Grava a sugestão no catálogo compartilhado; a correção digitada no cadastro
+    // será aplicada ao catálogo no momento em que o funcionário salvar o produto.
+    const registro = {codigo: ean, descricao, validadeOrigem: "", origemDescricao: "consulta pública"};
+    const existente = catalogoBase.find(c => String(c.codigo || "").trim() === ean);
+    if (existente) Object.assign(existente, registro);
+    else catalogoBase.push(registro);
     localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
     window.CheckProdutCloud?.saveCatalog(catalogoBase);
     atualizarContadorBanco();
     renderizarTabelaBanco();
-  }, 550);
+  }, 450);
 }
 
 // Pesquisa descrições ausentes em bases públicas e grava somente resultados encontrados.
