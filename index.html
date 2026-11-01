@@ -216,13 +216,21 @@
   </div>
 
   <section class="cards">
-    <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('RETIRAR',this)"><small>Produtos perto de vencer · retirar da prateleira</small><div class="number" id="alertaRetirada">0</div></div>
-    <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Troca de etiqueta · 15%</small><div class="number" id="alerta15">0</div></div>
-    <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Troca de etiqueta · 30%</small><div class="number" id="alerta30">0</div></div>
-    <div class="card green" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Etiquetas conferidas / atualizadas</small><div class="number" id="atualizados">0</div></div>
+    <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('RETIRAR',this)"><small>Produtos para retirar da prateleira</small><div class="number" id="alertaRetirada">0</div></div>
+    <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Solicitar desconto · 15%</small><div class="number" id="alerta15">0</div></div>
+    <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Solicitar desconto · 30%</small><div class="number" id="alerta30">0</div></div>
+    <div class="card green" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Descontos solicitados</small><div class="number" id="atualizados">0</div></div>
   </section>
   <section class="panel" id="painelProdutosResumo" hidden style="margin-top:-6px;">
     <div class="panel-head"><div><h3 id="resumoTitulo">Produtos</h3><div class="subtitle" id="resumoSubtitulo"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="primary" onclick="exportarResumoPainel()">⬇ Exportar lista para separação</button><button type="button" class="outline" onclick="fecharResumoPainel()">Fechar ✕</button></div></div>
+    <div id="barraRetiradaLote" hidden style="margin:0 0 12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:#f7fbff;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;margin:0;"><input type="checkbox" id="selecionarTodosRetirada" style="width:auto;" onchange="selecionarTodosRetirada(this.checked)"> Selecionar todos</label>
+        <input id="responsavelRetiradaLote" placeholder="Nome do responsável pela retirada" style="flex:1;min-width:220px;">
+        <button type="button" class="primary" onclick="marcarRetiradaLote()">Confirmar retirada dos selecionados</button>
+      </div>
+      <small class="subtitle" id="contadorRetiradaLote">Selecione os produtos que foram retirados.</small>
+    </div>
     <div id="resumoListaProdutos" class="resumo-lista"></div>
   </section>
 
@@ -332,8 +340,9 @@
         <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
         <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
         <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Pássaros</option><option>Areia</option><option>Petiscos Secos</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
-        <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
+        <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="NAO_ENCONTRADO">Não achei · provável venda / local não visível</option><option value="PENDENTE">Desconto pendente</option></select>
         <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de retiradas · 30 dias</button>
+        <button type="button" class="outline" onclick="document.getElementById('filtroSituacao').value='NAO_ENCONTRADO';renderizar();">Pasta: Não achei</button>
         <div class="subtitle" style="grid-column:1/-1;padding:4px 2px;font-weight:700;">Produtos cadastrados no banco de dados: <strong id="total">0</strong></div>
       </div>
     </details>
@@ -482,6 +491,7 @@ function aplicarPreferenciasCadastro() {
 aplicarPreferenciasCadastro();
 
 let cameraBarcodeAtual = null;
+const retiradasSelecionadas = new Set();
 let processandoOCR = false;
 
 // Ponte segura para os dados recebidos da nuvem (mantém as variáveis originais do sistema).
@@ -1215,11 +1225,19 @@ function diasRestantes(dataStr) {
 }
 
 function situacao(p) {
-  const dias = diasRestantes(p.validade);
-  if (dias === null) return { texto:"Validade não reconhecida", classe:"warn", faixa:0 };
-  if (dias <= 90) return { texto:"Alterar etiqueta · 30%", classe:"urgent", faixa:30 };
-  if (dias <= 120) return { texto:"Alterar etiqueta · 15%", classe:"warn", faixa:15 };
-  return { texto:"Acompanhamento", classe:"ok", faixa:0 };
+  const dias=diasRestantes(p.validade);
+  if(dias===null)return {texto:"Validade não reconhecida",classe:"warn",faixa:0};
+  if(dias<=90)return {texto:"Desconto de 30%",classe:"urgent",faixa:30};
+  if(dias<=120)return {texto:"Desconto de 15%",classe:"warn",faixa:15};
+  return {texto:"Acompanhamento",classe:"ok",faixa:0};
+}
+function descontoSolicitado(p,faixa) {
+  return faixa===30 ? !!(p.desconto30Solicitado || (p.etiquetaAtualizada && situacao(p).faixa===30))
+                    : !!(p.desconto15Solicitado || (p.etiquetaAtualizada && situacao(p).faixa===15));
+}
+function precisaSolicitarDesconto(p) {
+  const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+  return dias!==null&&dias>=0&&!p.naoEncontrado&&!p.retiradoVenda&&!!faixa&&!descontoSolicitado(p,faixa);
 }
 
 function formatarData(dataStr) {
@@ -1245,7 +1263,7 @@ document.getElementById("formProduto").addEventListener("submit", function(e) {
     validade: document.getElementById("validade").value,
     especie: document.getElementById("especie").value,
     funcionario: document.getElementById("funcionario").value.trim(),
-    etiquetaAtualizada: false
+    etiquetaAtualizada: editId ? !!produtos.find(x => x.id === Number(editId))?.etiquetaAtualizada : false
   };
 
   if (editId) {
@@ -1301,63 +1319,48 @@ function cancelarEdicao() {
 }
 
 function renderizar() {
-  const busca = (document.getElementById("busca")?.value || "").toLowerCase();
-  const funcFiltro = document.getElementById("filtroFuncionario")?.value || "";
-  const setorFiltro = document.getElementById("filtroSetor")?.value || "";
-  const situacaoFiltro = document.getElementById("filtroSituacao")?.value || "";
-
-  const filtrados = produtos.filter(p => {
-    const matchBusca = [p.barcode, p.descricao, p.setor, p.funcionario].join(" ").toLowerCase().includes(busca);
-    const dias = diasRestantes(p.validade);
-    const matchSetor = (!setorFiltro || p.setor === setorFiltro) && (setorFiltroAtual === "TODOS" || p.setor === setorFiltroAtual);
-    const matchFunc = (!funcFiltro || p.funcionario === funcFiltro || p.funcionarioTroca === funcFiltro || p.funcionarioRetirada === funcFiltro);
-    const faixa = situacao(p).faixa;
-    const matchPainel = filtroPainelAtual === "TODOS" || (filtroPainelAtual === "ATUALIZADAS" ? !!p.etiquetaAtualizada : faixa === filtroPainelAtual && !p.etiquetaAtualizada);
-    const matchSituacao = !situacaoFiltro || (situacaoFiltro === "VENCIDOS" && dias < 0) || (situacaoFiltro === "RETIRAR" && dias !== null && dias <= 10 && !p.retiradoVenda) || (situacaoFiltro === "RETIRADOS" && !!p.retiradoVenda) || (situacaoFiltro === "PENDENTE" && faixa > 0 && !p.etiquetaAtualizada);
-    return matchBusca && matchSetor && matchFunc && matchPainel && matchSituacao;
+  const busca=(document.getElementById("busca")?.value||"").toLowerCase();
+  const funcFiltro=document.getElementById("filtroFuncionario")?.value||"";
+  const setorFiltro=document.getElementById("filtroSetor")?.value||"";
+  const situacaoFiltro=document.getElementById("filtroSituacao")?.value||"";
+  const filtrados=produtos.filter(p=>{
+    const matchBusca=[p.barcode,p.descricao,p.setor,p.funcionario,p.funcionarioRetirada,p.funcionarioNaoEncontrado].join(" ").toLowerCase().includes(busca);
+    const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+    const matchSetor=(!setorFiltro||p.setor===setorFiltro)&&(setorFiltroAtual==="TODOS"||p.setor===setorFiltroAtual);
+    const matchFunc=!funcFiltro||[p.funcionario,p.funcionarioTroca,p.funcionarioRetirada,p.funcionarioNaoEncontrado].includes(funcFiltro);
+    const matchPainel=filtroPainelAtual==="TODOS"||(filtroPainelAtual==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(faixa===filtroPainelAtual&&precisaSolicitarDesconto(p)));
+    const matchSituacao=!situacaoFiltro||(situacaoFiltro==="VENCIDOS"&&dias<0&&!p.retiradoVenda&&!p.naoEncontrado)||(situacaoFiltro==="RETIRAR"&&dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado)||(situacaoFiltro==="RETIRADOS"&&!!p.retiradoVenda)||(situacaoFiltro==="NAO_ENCONTRADO"&&!!p.naoEncontrado)||(situacaoFiltro==="PENDENTE"&&precisaSolicitarDesconto(p));
+    return matchBusca&&matchSetor&&matchFunc&&matchPainel&&matchSituacao;
   });
-
-  document.getElementById("total").textContent = produtos.length;
-  document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
-  document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
-  document.getElementById("atualizados").textContent = produtos.filter(p => !!p.etiquetaAtualizada).length;
-  document.getElementById("alertaRetirada").textContent = produtos.filter(p => { const d=diasRestantes(p.validade); return d!==null && d>=0 && d<=10 && !p.retiradoVenda; }).length;
-  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["RETIRAR",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
-
-  const tbody = document.getElementById("lista");
-  tbody.innerHTML = "";
-  document.getElementById("vazio").style.display = filtrados.length ? "none" : "block";
-
-  filtrados.sort((a,b) => (diasRestantes(a.validade) ?? 99999) - (diasRestantes(b.validade) ?? 99999));
-
-  filtrados.forEach(p => {
-    const dias = diasRestantes(p.validade);
-    const s = situacao(p);
-    const avisoRetirada = dias !== null && dias <= 10 && !p.retiradoVenda;
-    const statusTag = p.retiradoVenda ? `<span class="tag done">Retirado da área de venda</span>` : dias < 0 ? `<span class="tag urgent">VENCIDO · RETIRAR</span>` : avisoRetirada ? `<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias} dia(s)</span>` : p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><span class="code-badge">${p.barcode}</span></td>
-      <td><strong>${p.descricao}</strong><br><small style="color:var(--muted);">${p.peso || ""}</small></td>
-      <td><span class="tag setor">${p.setor}</span></td>
-      <td><strong>${p.quantidade}</strong></td>
-      <td>${formatarData(p.validade)}</td>
-      <td>${dias < 0 ? `<strong style="color:var(--red);">Vencido</strong>` : `${dias} dias`}</td>
-      <td>${statusTag}</td>
-      <td><small>${p.funcionario}${p.funcionarioTroca ? `<br><b style="color:var(--green);">Troca: ${p.funcionarioTroca}</b>` : ''}</small></td>
-      <td>
-        <div class="actions">
-          ${s.faixa > 0 && !p.etiquetaAtualizada && dias >= 0 ? `<button type="button" class="primary" onclick="marcarAtualizada(${p.id})">Trocar etiqueta ${s.faixa}%</button>` : p.etiquetaAtualizada ? `<button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">Desfazer troca</button>` : ""}
-          ${dias !== null && dias <= 10 && !p.retiradoVenda ? `<button type="button" class="danger" onclick="marcarRetirada(${p.id})">Já retirei da prateleira</button>` : ""}
-          <button type="button" class="danger master-only" onclick="excluir(${p.id})">✕</button>
-        </div>
-      </td>
-    `;
+  document.getElementById("total").textContent=produtos.length;
+  document.getElementById("alerta15").textContent=produtos.filter(p=>situacao(p).faixa===15&&precisaSolicitarDesconto(p)).length;
+  document.getElementById("alerta30").textContent=produtos.filter(p=>situacao(p).faixa===30&&precisaSolicitarDesconto(p)).length;
+  document.getElementById("atualizados").textContent=produtos.filter(p=>!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada).length;
+  document.getElementById("alertaRetirada").textContent=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;}).length;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",["RETIRAR",15,30,"ATUALIZADAS"][i]===filtroPainelAtual));
+  const tbody=document.getElementById("lista");tbody.innerHTML="";
+  document.getElementById("vazio").style.display=filtrados.length?"none":"block";
+  filtrados.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999));
+  filtrados.forEach(p=>{
+    const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+    const avisoRetirada=dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado;
+    let statusTag;
+    if(p.naoEncontrado)statusTag='<span class="tag warn">Não localizado · provável venda / local não visível</span>';
+    else if(p.retiradoVenda)statusTag='<span class="tag done">Retirado da área de venda</span>';
+    else if(avisoRetirada)statusTag=`<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias<0?"VENCIDO":dias+" dia(s)"}</span>`;
+    else if(faixa&&descontoSolicitado(p,faixa))statusTag=`<span class="tag done">Desconto de ${faixa}% solicitado</span>`;
+    else statusTag=`<span class="tag ${situacao(p).classe}">${situacao(p).texto}</span>`;
+    const descontoBtn=precisaSolicitarDesconto(p)?`<button type="button" class="primary" onclick="marcarDescontoSolicitado(${p.id},${faixa})">Já solicitei desconto ${faixa}%</button>`:"";
+    const retiradaBtns=avisoRetirada?`<button type="button" class="danger" onclick="marcarRetirada(${p.id})">Já retirei da prateleira</button><button type="button" class="outline" onclick="marcarNaoEncontrado(${p.id})">Não achei</button>`:"";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><span class="code-badge">${p.barcode||""}</span></td><td><strong>${p.descricao||""}</strong><br><small style="color:var(--muted);">${p.peso||""}</small></td>
+      <td><span class="tag setor">${p.setor||"—"}</span></td><td><strong>${p.quantidade??0}</strong></td><td>${formatarData(p.validade)}</td>
+      <td>${dias<0?'<strong style="color:var(--red);">Vencido</strong>':dias+" dias"}</td><td>${statusTag}</td>
+      <td><small>${p.funcionario||""}${p.funcionarioTroca?"<br><b>Desconto: "+p.funcionarioTroca+"</b>":""}${p.funcionarioRetirada?"<br><b>Retirada: "+p.funcionarioRetirada+"</b>":""}${p.funcionarioNaoEncontrado?"<br><b>Conferiu: "+p.funcionarioNaoEncontrado+"</b>":""}</small></td>
+      <td><div class="actions">${descontoBtn}${retiradaBtns}<button type="button" class="danger master-only" onclick="excluir(${p.id})">✕</button></div></td>`;
     tbody.appendChild(tr);
   });
 }
-
 function filtrarPainel(tipo, el) {
   const painel=document.getElementById("painelProdutosResumo");
   const mesmoTipo=painelResumoTipo===tipo && painelResumoAberto;
@@ -1373,30 +1376,52 @@ function fecharResumoPainel() {
   document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
 }
 function atualizarResumoPainel() {
-  const painel=document.getElementById("painelProdutosResumo");
-  if(!painel)return;
+  const painel=document.getElementById("painelProdutosResumo");if(!painel)return;
   if(!painelResumoAberto){painel.hidden=true;return;}
-  const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",RETIRAR:"Produtos perto de vencer · retirar da prateleira",ATUALIZADAS:"Etiquetas conferidas / atualizadas"};
-  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
+  const titulos={TODOS:"Todos os produtos cadastrados",15:"Solicitações de desconto · 15%",30:"Solicitações de desconto · 30%",RETIRAR:"Produtos próximos do vencimento · retirar da prateleira",ATUALIZADAS:"Descontos solicitados"};
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda&&!p.naoEncontrado):painelResumoTipo==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(situacao(p).faixa===painelResumoTipo&&precisaSolicitarDesconto(p)));
   document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
+  document.getElementById("barraRetiradaLote").hidden=painelResumoTipo!=="RETIRAR";
+  if(painelResumoTipo!=="RETIRAR")retiradasSelecionadas.clear();
   const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
   itens.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999)).forEach(p=>{
     const item=document.createElement("div");item.className="resumo-produto";
+    if(painelResumoTipo==="RETIRAR"){
+      const linha=document.createElement("label");linha.style.cssText="display:flex;align-items:center;gap:8px;margin:0 0 7px;";
+      const cb=document.createElement("input");cb.type="checkbox";cb.style.width="auto";cb.checked=retiradasSelecionadas.has(String(p.id));
+      cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(String(p.id));else retiradasSelecionadas.delete(String(p.id));atualizarContadorRetiradaLote();});
+      const txt=document.createElement("span");txt.textContent="Selecionar para retirada em lote";linha.append(cb,txt);item.appendChild(linha);
+    }
     const nome=document.createElement("strong");nome.textContent=p.descricao||"Produto sem descrição";
     const cod=document.createElement("small");cod.textContent="GTIN: "+(p.barcode||"—");
     const meta=document.createElement("div");meta.className="resumo-meta";
     const qtd=document.createElement("span");qtd.textContent="Qtd.: "+(p.quantidade??1);
     const val=document.createElement("span");val.textContent="Validade: "+formatarData(p.validade);
-    meta.append(qtd,val);item.append(nome,cod,meta);lista.appendChild(item);
+    const dias=document.createElement("span");dias.textContent="Dias: "+diasRestantes(p.validade);
+    meta.append(qtd,val,dias);item.append(nome,cod,meta);lista.appendChild(item);
   });
-  painel.hidden=false;
+  atualizarContadorRetiradaLote();painel.hidden=false;
 }
-function obterItensResumoPainel() {
-  return produtos.filter(p=>painelResumoTipo==="TODOS"?true:
-    painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)>=0&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):
-    painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:
-    (situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
+function atualizarContadorRetiradaLote(){
+  const el=document.getElementById("contadorRetiradaLote");if(el)el.textContent=retiradasSelecionadas.size+" produto(s) selecionado(s) para retirada em lote.";
+  const todos=document.getElementById("selecionarTodosRetirada");
+  if(todos&&painelResumoTipo==="RETIRAR"){
+    const elegiveis=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;});
+    todos.checked=elegiveis.length>0&&elegiveis.every(p=>retiradasSelecionadas.has(String(p.id)));
+  }
+}
+function selecionarTodosRetirada(checked){
+  produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;})
+    .forEach(p=>{if(checked)retiradasSelecionadas.add(String(p.id));else retiradasSelecionadas.delete(String(p.id));});
+  atualizarResumoPainel();
+}
+async function marcarRetiradaLote(){
+  const ids=[...retiradasSelecionadas];if(!ids.length){alert("Selecione pelo menos um produto.");return;}
+  const nome=document.getElementById("responsavelRetiradaLote").value.trim();if(!nome){alert("Informe o nome do responsável pela retirada.");return;}
+  const agora=new Date().toISOString();
+  produtos.forEach(p=>{if(ids.includes(String(p.id))&&!p.retiradoVenda&&!p.naoEncontrado){p.retiradoVenda=true;p.dataRetiradaVenda=agora;p.funcionarioRetirada=nome;}});
+  retiradasSelecionadas.clear();await salvar();atualizarResumoPainel();
 }
 function exportarResumoPainel() {
   const itens=obterItensResumoPainel();
@@ -1413,7 +1438,7 @@ function exportarResumoPainel() {
     const setor=String(p.setor||"Sem setor");
     const qtd=Math.max(0,Number(p.quantidade)||0);
     totalUnidades+=qtd;
-    linhas.push([setor,p.barcode||"",p.descricao||"",p.peso||"",qtd,formatarData(p.validade),diasRestantes(p.validade),p.retiradoVenda?"Retirado da venda":p.etiquetaAtualizada?"Etiqueta atualizada":situacao(p).texto]);
+    linhas.push([setor,p.barcode||"",p.descricao||"",p.peso||"",qtd,formatarData(p.validade),diasRestantes(p.validade),p.naoEncontrado?"Não localizado":p.retiradoVenda?"Retirado da venda":p.desconto30Solicitado?"Desconto 30% solicitado":p.desconto15Solicitado?"Desconto 15% solicitado":situacao(p).texto]);
   });
   linhas.push([]);
   linhas.push(["TOTAL DE PRODUTOS DIFERENTES",ordenados.length]);
@@ -1427,12 +1452,23 @@ function exportarResumoPainel() {
   const nome=(titulos[painelResumoTipo]||"Produtos").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_");
   XLSX.writeFile(wb,"CheckProdut_"+nome+"_"+data+".xlsx");
 }
-function marcarRetirada(id) {
-  const p=produtos.find(x=>x.id===id); if(!p)return;
-  if(p.retiradoVenda){alert("A retirada já foi registrada. Para corrigir, edite o produto.");return;}
-  const resp=prompt("Nome do funcionário que retirou o produto da área de venda:",p.funcionario||"");
-  if(!resp||!resp.trim())return;
-  p.retiradoVenda=true; p.dataRetiradaVenda=new Date().toISOString(); p.funcionarioRetirada=resp.trim(); salvar();
+async function marcarRetirada(id) {
+  const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
+  const resp=prompt("Nome do funcionário que retirou o produto da área de venda:",p.funcionario||"");if(!resp||!resp.trim())return;
+  p.retiradoVenda=true;p.dataRetiradaVenda=new Date().toISOString();p.funcionarioRetirada=resp.trim();await salvar();
+}
+async function marcarNaoEncontrado(id) {
+  const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
+  const resp=prompt("Nome do funcionário que procurou e não encontrou o produto:",p.funcionario||"");if(!resp||!resp.trim())return;
+  p.naoEncontrado=true;p.dataNaoEncontrado=new Date().toISOString();p.funcionarioNaoEncontrado=resp.trim();
+  await salvar();alert("Produto movido para a pasta 'Não achei · provável venda / local não visível'.");
+}
+async function marcarDescontoSolicitado(id,faixa) {
+  const p=produtos.find(x=>String(x.id)===String(id));if(!p||situacao(p).faixa!==Number(faixa)||!precisaSolicitarDesconto(p))return;
+  const resp=prompt("Nome do funcionário que solicitou o desconto de "+faixa+"%:",p.funcionario||"");if(!resp||!resp.trim())return;
+  if(Number(faixa)===15){p.desconto15Solicitado=true;p.dataDesconto15Solicitado=new Date().toISOString();}
+  if(Number(faixa)===30){p.desconto30Solicitado=true;p.dataDesconto30Solicitado=new Date().toISOString();}
+  p.funcionarioTroca=resp.trim();await salvar();
 }
 function abrirHistoricoVencimentos() {
   const agora=Date.now(), limite=agora-30*86400000;
