@@ -167,7 +167,8 @@
 </header>
 
 <main>
-  <section class="panel" id="painelImportacao">
+  <details class="panel" id="painelImportacao" style="padding:12px 16px;">
+    <summary style="cursor:pointer;font-weight:700;color:var(--muted);font-size:13px;">Importação manual / colar relatório (opção avançada)</summary>
     <div class="panel-head"><div><h3>Importar por texto</h3><div class="subtitle">Copie as células do Excel ou cole o conteúdo de um bloco de notas.</div></div></div>
     <label for="textoImportacao">Conteúdo copiado (GTIN, descrição e data de validade)</label>
     <textarea id="textoImportacao" rows="5" placeholder="Cole aqui as linhas copiadas do Excel ou do bloco de notas. Mantenha as colunas separadas por tabulação ou ponto e vírgula."></textarea>
@@ -179,7 +180,7 @@
       </div>
     </div>
     <div id="statusImportacaoTexto" class="subtitle" aria-live="polite"></div>
-  </section>
+  </details>
   <div class="welcome">
     <div>
       <h2>Painel de Validade</h2>
@@ -1095,6 +1096,10 @@ function formatarData(dataStr) {
 document.getElementById("formProduto").addEventListener("submit", function(e) {
   e.preventDefault();
   const editId = document.getElementById("editId").value;
+  const validadeDigitada = interpretarDataValidade(document.getElementById("validade").value);
+  const hojeCadastro = new Date(); hojeCadastro.setHours(0,0,0,0);
+  if (!validadeDigitada) { alert("Informe uma data de validade válida."); return; }
+  if (validadeDigitada < hojeCadastro) { alert("CADASTRO NÃO PERMITIDO! Este produto está VENCIDO. Retire-o imediatamente da área de venda. O sistema não permite cadastrar produto vencido."); return; }
   const p = {
     id: editId ? Number(editId) : Date.now(),
     barcode: document.getElementById("barcode").value.trim(),
