@@ -1391,8 +1391,8 @@ function atualizarResumoPainel() {
     const item=document.createElement("div");item.className="resumo-produto";
     if(painelResumoTipo==="RETIRAR"){
       const linha=document.createElement("label");linha.style.cssText="display:flex;align-items:center;gap:8px;margin:0 0 7px;";
-      const cb=document.createElement("input");cb.type="checkbox";cb.style.width="auto";cb.dataset.produtoId=String(p.id);cb.checked=retiradasSelecionadas.has(String(p.id));
-      cb.addEventListener("change",()=>{const id=String(cb.dataset.produtoId);if(cb.checked)retiradasSelecionadas.add(id);else retiradasSelecionadas.delete(id);atualizarContadorRetiradaLote();});
+      const cb=document.createElement("input");cb.type="checkbox";cb.style.width="auto";cb.checked=retiradasSelecionadas.has(p);
+      cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(p);else retiradasSelecionadas.delete(p);atualizarContadorRetiradaLote();});
       const txt=document.createElement("span");txt.textContent="Selecionar para retirada em lote";linha.append(cb,txt);item.appendChild(linha);
     }
     const nome=document.createElement("strong");nome.textContent=p.descricao||"Produto sem descrição";
@@ -1410,23 +1410,23 @@ function atualizarContadorRetiradaLote(){
   const todos=document.getElementById("selecionarTodosRetirada");
   if(todos&&painelResumoTipo==="RETIRAR"){
     const elegiveis=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;});
-    todos.checked=elegiveis.length>0&&elegiveis.every(p=>retiradasSelecionadas.has(String(p.id)));
+    todos.checked=elegiveis.length>0&&elegiveis.every(p=>retiradasSelecionadas.has(p));
   }
 }
 function selecionarTodosRetirada(checked){
   const elegiveis=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;});
-  if(checked)elegiveis.forEach(p=>retiradasSelecionadas.add(String(p.id)));
-  else elegiveis.forEach(p=>retiradasSelecionadas.delete(String(p.id)));
-  document.querySelectorAll("#resumoListaProdutos input[type=checkbox][data-produto-id]").forEach(cb=>{
-    cb.checked=checked&&retiradasSelecionadas.has(String(cb.dataset.produtoId));
+  if(checked)elegiveis.forEach(p=>retiradasSelecionadas.add(p));
+  else elegiveis.forEach(p=>retiradasSelecionadas.delete(p));
+  document.querySelectorAll("#resumoListaProdutos input[type=checkbox]").forEach((cb,i)=>{
+    const item=produtos.filter(p=>painelResumoTipo==="RETIRAR"&&(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda&&!p.naoEncontrado)).sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999))[i];
+    if(item)cb.checked=checked&&retiradasSelecionadas.has(item);
   });
   atualizarContadorRetiradaLote();
 }
 async function marcarRetiradaLote(){
-  const ids=[...retiradasSelecionadas].map(String);
+  const selecionados=[...retiradasSelecionadas].filter(p=>produtos.includes(p)&&!p.retiradoVenda&&!p.naoEncontrado);
   const nome=document.getElementById("responsavelRetiradaLote").value.trim();
   if(!nome){alert("Informe o nome do responsável pela retirada.");return;}
-  const selecionados=produtos.filter(p=>ids.includes(String(p.id))&&!p.retiradoVenda&&!p.naoEncontrado&&diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10);
   if(!selecionados.length){alert("Nenhum produto válido ficou selecionado. Marque os produtos novamente e tente confirmar.");return;}
   const agora=new Date().toISOString();
   selecionados.forEach(p=>{p.retiradoVenda=true;p.dataRetiradaVenda=agora;p.funcionarioRetirada=nome;});
