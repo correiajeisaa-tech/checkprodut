@@ -68,6 +68,7 @@
     .danger { background:#fae9e8; color:#a83c3c; }
     .outline { background:transparent; border:1px solid var(--border); color:var(--text); }
     .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .resumo-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.resumo-produto{border:1px solid var(--border);border-radius:10px;padding:11px;background:#f8fbfd;min-width:0}.resumo-produto strong{display:block;font-size:13px;line-height:1.3;overflow-wrap:anywhere}.resumo-produto small{display:block;color:var(--muted);font-size:11px;margin-top:5px}.resumo-produto .resumo-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px;font-size:11px;font-weight:700}@media(max-width:550px){.resumo-lista{grid-template-columns:1fr}}
     .card { cursor:pointer; transition:transform .15s,box-shadow .15s; min-height:108px; }
     .card:focus-visible,.card:hover { outline:2px solid var(--cyan); transform:translateY(-2px); }
     .card.active-filter { border:2px solid var(--cyan); }
@@ -196,6 +197,10 @@
     <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Troca de etiqueta · 15%</small><div class="number" id="alerta15">0</div></div>
     <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Troca de etiqueta · 30%</small><div class="number" id="alerta30">0</div></div>
     <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Etiquetas Atualizadas</small><div class="number" id="atualizados">0</div></div>
+  </section>
+  <section class="panel" id="painelProdutosResumo" hidden style="margin-top:-6px;">
+    <div class="panel-head"><div><h3 id="resumoTitulo">Produtos</h3><div class="subtitle" id="resumoSubtitulo"></div></div><button type="button" class="outline" onclick="fecharResumoPainel()">Fechar ✕</button></div>
+    <div id="resumoListaProdutos" class="resumo-lista"></div>
   </section>
 
   <!-- FORMULÁRIO DE CADASTRO -->
@@ -1222,11 +1227,35 @@ function renderizar() {
 }
 
 function filtrarPainel(tipo, el) {
-  filtroPainelAtual = tipo;
-  document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
-  if(el) el.classList.add("active-filter");
+  filtroPainelAtual = (filtroPainelAtual === tipo && tipo !== "TODOS") ? "TODOS" : tipo;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["TODOS",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
   renderizar();
-  document.getElementById("lista").closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"});
+  atualizarResumoPainel();
+}
+function fecharResumoPainel() {
+  filtroPainelAtual = "TODOS";
+  document.getElementById("painelProdutosResumo").hidden = true;
+  document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
+}
+function atualizarResumoPainel() {
+  const painel=document.getElementById("painelProdutosResumo");
+  if(!painel)return;
+  if(filtroPainelAtual==="TODOS"){painel.hidden=true;return;}
+  const titulos={15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",ATUALIZADAS:"Etiquetas atualizadas"};
+  const itens=produtos.filter(p=>filtroPainelAtual==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===filtroPainelAtual&&!p.etiquetaAtualizada));
+  document.getElementById("resumoTitulo").textContent=titulos[filtroPainelAtual]||"Produtos cadastrados";
+  document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
+  const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
+  itens.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999)).forEach(p=>{
+    const item=document.createElement("div");item.className="resumo-produto";
+    const nome=document.createElement("strong");nome.textContent=p.descricao||"Produto sem descrição";
+    const cod=document.createElement("small");cod.textContent="GTIN: "+(p.barcode||"—");
+    const meta=document.createElement("div");meta.className="resumo-meta";
+    const qtd=document.createElement("span");qtd.textContent="Qtd.: "+(p.quantidade??1);
+    const val=document.createElement("span");val.textContent="Validade: "+formatarData(p.validade);
+    meta.append(qtd,val);item.append(nome,cod,meta);lista.appendChild(item);
+  });
+  painel.hidden=false;
 }
 function marcarRetirada(id) {
   const p=produtos.find(x=>x.id===id); if(!p)return;
