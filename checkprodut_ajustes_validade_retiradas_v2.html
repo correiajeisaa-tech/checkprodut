@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07152f">
+  <meta name="description" content="CheckProdut — controle inteligente de validade, produtos e alertas de vencimento.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230b1b3b'/%3E%3Cpath d='M13 17v30M19 17v30M25 17v30M33 17v30M39 17v30M45 17v30M51 17v30' stroke='%2300d4ff' stroke-width='3'/%3E%3Cpath d='m31 35 7 7 14-16' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <title>CheckProdut | Controle Inteligente de Validade</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    :root {
+      --green:#0b1b3b;
+      --green2:#12356b;
+      --lime:#00d4ff;
+      --bg:#f2f6fc;
+      --white:#ffffff;
+      --text:#17243b;
+      --muted:#68778f;
+      --border:#dce5f1;
+      --red:#d9364f;
+      --orange:#d98a20;
+      --blue:#087fce;
+      --cyan:#00bfe9;
+    }
+    * { box-sizing: border-box; }
+    body { background:linear-gradient(180deg,#edf4fc 0,#f7f9fd 260px); }
+    header { background:linear-gradient(115deg,#07152f 0%,#102d5d 68%,#075b91 100%); padding:18px 5%; box-shadow:0 8px 28px #07152f24; border-bottom:3px solid #00c9f2; }
+    .brand { gap:13px; }
+    .logo { width:48px; height:48px; border-radius:14px; background:linear-gradient(145deg,#00d4ff,#087fce); color:white; box-shadow:0 5px 18px #00bfe955; display:grid; place-items:center; overflow:hidden; }
+    .logo svg { width:34px; height:34px; display:block; }
+    .brand h1 { font-size:22px; letter-spacing:-.6px; }
+    .brand h1 span { color:#00d4ff; }
+    .brand small { color:#c6e8ff; letter-spacing:1.35px; }
+    main { max-width:1280px; margin:26px auto; }
+    h2 { color:#0b1b3b; letter-spacing:-.5px; }
+    .card,.panel { border-color:#dce5f1; box-shadow:0 5px 18px #17365d0a; }
+    .card { border-radius:16px; padding:19px; }
+    .panel { border-radius:16px; padding:20px; }
+    .primary,.tab-item.active { background:linear-gradient(110deg,#0b1b3b,#075b91); color:white; }
+    .secondary { background:#e4f5fc; color:#07527e; }
+    input:focus,select:focus { border-color:#00aeda; box-shadow:0 0 0 3px #00c9f21c; }
+    button:hover,label.btn-upload:hover { transform:translateY(-1px); filter:brightness(1.04); }
+    .code-badge { background:#e6f7fc; color:#07527e; border-color:#b9e9f6; }
+    #authGate { background:radial-gradient(ellipse at 50% 0%,#174b82 0%,#07152f 65%); }
+    #authGate .auth-card { border:1px solid #dce9f6; box-shadow:0 24px 80px #0006; }
+    @media(max-width:550px) {
+      header { padding:14px 12px; }
+      .brand h1 { font-size:20px; }
+      .brand small { font-size:9px; }
+    }
+    body { margin:0; background:var(--bg); font-family: system-ui, -apple-system, sans-serif; color:var(--text); }
+    header { background:var(--green); color:white; padding:16px 5%; display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .logo { width:42px; height:42px; background:var(--lime); color:var(--green); border-radius:10px; display:grid; place-items:center; font-size:22px; font-weight:900; }
+    .brand h1 { font-size:20px; margin:0; font-weight:800; }
+    .brand small { display:block; color:#c5d6cc; font-size:10px; letter-spacing:1px; }
+    main { max-width:1200px; margin:20px auto; padding:0 15px; }
+    .welcome { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:18px; }
+    h2 { margin:0 0 4px; font-size:22px; color:var(--green); }
+    .subtitle { color:var(--muted); font-size:12px; }
+    button, label.btn-upload { border:0; border-radius:8px; padding:10px 14px; font-weight:700; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; text-decoration:none; }
+    .primary { background:var(--green); color:white; }
+    .secondary { background:#e2eae4; color:var(--green); }
+    .danger { background:#fae9e8; color:#a83c3c; }
+    .outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .resumo-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.resumo-produto{border:1px solid var(--border);border-radius:10px;padding:11px;background:#f8fbfd;min-width:0}.resumo-produto strong{display:block;font-size:13px;line-height:1.3;overflow-wrap:anywhere}.resumo-produto small{display:block;color:var(--muted);font-size:11px;margin-top:5px}.resumo-produto .resumo-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px;font-size:11px;font-weight:700}@media(max-width:550px){.resumo-lista{grid-template-columns:1fr}}
+    .card { cursor:pointer; transition:transform .15s,box-shadow .15s; min-height:108px; }
+    .card:focus-visible,.card:hover { outline:2px solid var(--cyan); transform:translateY(-2px); }
+    .card.active-filter { border:2px solid var(--cyan); }
+    .filter-row { display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+    @media(max-width:650px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card{padding:13px;min-height:96px}.number{font-size:25px}.filter-row{grid-template-columns:1fr 1fr}.filter-row input{grid-column:1/-1}.tabs-setores{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tab-item{min-height:54px;font-size:12px}}
+    .card { background:white; padding:16px; border:1px solid var(--border); border-radius:12px; }
+    .card small { color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; }
+    .number { font-size:28px; font-weight:800; margin-top:6px; line-height:1; }
+    .card.green .number { color:var(--green); }
+    .card.orange .number { color:var(--orange); }
+    .card.red .number { color:var(--red); }
+    .card.blue .number { color:var(--blue); }
+    .panel { background:white; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:18px; }
+    .panel-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; border-bottom:1px solid #f0f4f1; padding-bottom:10px; }
+    .panel h3 { margin:0; font-size:16px; color:var(--green); font-weight:700; }
+    .form-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    label { display:block; font-size:11px; font-weight:700; margin-bottom:5px; color:#415249; }
+    input, select { width:100%; padding:10px 12px; border:1px solid #c8d4cb; border-radius:8px; background:white; font-size:13px; color:var(--text); outline:none; }
+    .input-with-btn { display:flex; gap:6px; }
+    .input-with-btn input { flex:1; }
+    .icon-btn { padding:0 12px; height:39px; font-size:15px; }
+    .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+    .tabs-setores { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+    .tab-item { display:flex; align-items:center; justify-content:center; text-align:center; min-height:48px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#eef3ef; font-size:11px; line-height:1.2; font-weight:700; color:var(--muted); cursor:pointer; white-space:normal; }
+    .tab-item.active { background:var(--green); color:white; }
+    .code-badge { font-family: monospace; font-size: 12px; font-weight: 700; background: #eef3ef; padding: 3px 6px; border-radius: 4px; color: #1e3a2b; border: 1px solid #d4dfd7; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:820px; }
+    th { text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; padding:10px 8px; border-bottom:2px solid var(--border); }
+    td { padding:11px 8px; border-bottom:1px solid var(--border); font-size:12px; vertical-align:middle; }
+    .tag { display:inline-block; padding:4px 8px; border-radius:15px; font-size:10px; font-weight:700; }
+    .tag.ok { background:#e7f3e9; color:#267044; }
+    .tag.warn { background:#fff1dc; color:#a66b13; }
+    .tag.urgent { background:#fbe7e6; color:#b23b39; }
+    .tag.done { background:#e9edf0; color:#52616a; }
+    .tag.setor { background:#e4eff0; color:#215a6b; }
+    .actions { display:flex; gap:4px; flex-wrap:wrap; }
+    .actions button { padding:5px 8px; font-size:11px; }
+    .empty { text-align:center; color:var(--muted); padding:35px 10px; font-size:13px; }
+    .filtros-recolhiveis{margin:0 0 12px;border:1px solid var(--border);border-radius:10px;background:#fbfcfe}
+    .filtros-recolhiveis>summary{list-style:none;cursor:pointer}
+    .filtros-recolhiveis>summary::-webkit-details-marker{display:none}
+    .filtros-resumo{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;color:var(--muted);font-size:12px;font-weight:700}
+    .filtros-seta{font-size:18px;transition:transform .2s}
+    .filtros-recolhiveis[open] .filtros-seta{transform:rotate(180deg)}
+    .filtros-recolhiveis[open]>.filtros-resumo{border-bottom:1px solid var(--border)}
+    .filtros-recolhiveis .filter-row{padding:12px;margin:0}
+    #cloudBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    #cloudBar .loja-nome{font-size:13px;color:inherit;letter-spacing:.2px}
+    #cloudBar .cloud-interno{display:none!important}
+    .produtos-panel{padding:0;overflow:hidden}
+    .produtos-recolhivel>summary{list-style:none;cursor:pointer}
+    .produtos-recolhivel>summary::-webkit-details-marker{display:none}
+    .produtos-resumo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px}
+    .produtos-resumo strong{display:block;color:var(--green);font-size:15px;font-weight:750}
+    .produtos-resumo small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+    .produtos-seta{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--border);border-radius:50%;color:var(--muted);font-size:20px;transition:transform .2s}
+    .produtos-recolhivel[open] .produtos-seta{transform:rotate(180deg)}
+    .produtos-recolhivel[open]>.produtos-resumo{border-bottom:1px solid var(--border)}
+    .produtos-conteudo{padding:16px 18px 18px}
+    .produtos-acoes-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    @media(max-width:550px){.produtos-resumo{padding:14px}.produtos-conteudo{padding:12px}.produtos-acoes-topo{align-items:flex-start}}
+    .footer { text-align:center; color:var(--muted); font-size:10px; padding:20px; }
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; padding:15px; }
+    .modal-content { background:white; border-radius:12px; width:100%; max-width:800px; padding:20px; max-height:85vh; overflow-y:auto; }
+    .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .modal-head h4 { margin:0; font-size:16px; color:var(--green); }
+    .camera-box { width:100%; height:230px; background:#000; border-radius:8px; overflow:hidden; }
+    .camera-box video { width:100%; height:100%; object-fit:cover; }
+    .badge-auto { font-size: 9px; background: #e8f5e9; color: #2e7d32; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+
+    #authGate { position:fixed; inset:0; z-index:5000; background:rgba(15,35,27,.96); display:flex; align-items:center; justify-content:center; padding:18px; }
+    #authGate .auth-card { width:100%; max-width:390px; background:white; padding:26px; border-radius:16px; box-shadow:0 18px 60px #0005; }
+    #authGate h2 { margin:0 0 8px; } #authGate p { color:var(--muted); font-size:13px; line-height:1.5; }
+    #authGate input { margin:6px 0 12px; } #authGate button { width:100%; justify-content:center; }
+    #authMessage { min-height:20px; color:var(--red); font-size:12px; margin:8px 0; }
+    #cloudBar { display:flex; align-items:center; gap:10px; color:#eaf2ed; font-size:12px; flex-wrap:wrap; }
+    #cloudBar button { padding:7px 10px; }
+
+    @media(max-width:850px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
+    @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;} .cards .card{min-width:0;min-height:104px;padding:12px;display:flex;flex-direction:column;justify-content:center;} .cards .card small{font-size:10px;line-height:1.25;} .cards .number{font-size:25px;} .form-grid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+<div id="authGate">
+  <form class="auth-card" id="authForm">
+    <div class="logo" style="margin-bottom:16px;"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 7v26M12 7v26M17 7v26M24 7v26M29 7v26M34 7v26" stroke="white" stroke-width="2.6"/><path d="m17 22 5 5 11-13" fill="none" stroke="#07152f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h2>Acesso ao CheckProdut</h2>
+    <p>Entre com seu e-mail corporativo autorizado para acessar os dados compartilhados da loja.</p>
+    <label for="authEmail">E-mail</label>
+    <input id="authEmail" type="email" autocomplete="username" required placeholder="seu e-mail">
+    <label for="authPassword">Senha</label>
+    <input id="authPassword" type="password" autocomplete="current-password" required placeholder="Sua senha">
+    <button class="primary" type="submit" id="authSubmit">Entrar com e-mail e senha</button>
+    <button class="secondary" type="button" id="googleSignIn" style="margin-top:8px;">Continuar com Google</button>
+    <div id="authMessage" role="status"></div>
+    <p style="font-size:11px;margin-bottom:0;">Acesso restrito à equipe autorizada.</p>
+  </form>
+</div>
+
+
+<header>
+  <div class="brand">
+    <div class="logo" aria-label="CheckProdut"><svg viewBox="0 0 40 40" role="img" aria-hidden="true"><path d="M7 7v26M12 7v26M17 7v26M24 7v26M29 7v26M34 7v26" stroke="white" stroke-width="2.6"/><path d="m17 22 5 5 11-13" fill="none" stroke="#07152f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div>
+      <h1>Check<span>Produt</span></h1>
+      <small>CONTROLE INTELIGENTE DE VALIDADE · PETCAMP</small>
+    </div>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <div id="cloudBar"><strong class="loja-nome">PetCamp Nova Odessa</strong><span id="cloudStatus" class="cloud-interno">Conectando...</span><strong id="cloudUser" class="cloud-interno"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
+    <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
+    <button type="button" class="secondary" onclick="abrirColagemEspecial()">📋 Colar especial</button>
+    <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
+      📥 Carregar Relatório da Loja (Excel, CSV ou PDF)
+      <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv, .pdf" style="display:none;" onchange="carregarRelatorioLoja(event)">
+    </label>
+  </div>
+</header>
+
+<main>
+  <details class="panel" id="painelImportacao" style="padding:12px 16px;">
+    <summary style="cursor:pointer;font-weight:700;color:var(--muted);font-size:13px;">Importação manual / colar relatório (opção avançada)</summary>
+    <div class="panel-head"><div><h3>Importar por texto</h3><div class="subtitle">Copie as células do Excel ou cole o conteúdo de um bloco de notas.</div></div></div>
+    <label for="textoImportacao">Conteúdo copiado (GTIN, descrição e data de validade)</label>
+    <textarea id="textoImportacao" rows="5" placeholder="Cole aqui as linhas copiadas do Excel ou do bloco de notas. Mantenha as colunas separadas por tabulação ou ponto e vírgula."></textarea>
+    <div class="form-actions" style="justify-content:space-between;flex-wrap:wrap;">
+      <small class="subtitle">A importação identifica GTIN/EAN, descrição e validade pelo cabeçalho. A data original é mantida.</small>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="outline" onclick="document.getElementById('textoImportacao').value=''">Limpar campo</button>
+        <button type="button" class="primary" onclick="importarTextoColado()">Importar texto</button>
+      </div>
+    </div>
+    <div id="statusImportacaoTexto" class="subtitle" aria-live="polite"></div>
+  </details>
+  <div class="welcome">
+    <div>
+      <h2>Painel de Validade</h2>
+      <div class="subtitle">Bipe o código do produto e a descrição aparecerá automaticamente.</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button type="button" class="primary" onclick="document.getElementById('cadastro').scrollIntoView({behavior:'smooth'})">+ Novo Produto</button>
+    </div>
+  </div>
+
+  <section class="cards">
+    <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('RETIRAR',this)"><small>Produtos para retirar da prateleira</small><div class="number" id="alertaRetirada">0</div></div>
+    <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Solicitar desconto · 15%</small><div class="number" id="alerta15">0</div></div>
+    <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Solicitar desconto · 30%</small><div class="number" id="alerta30">0</div></div>
+    <div class="card green" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Descontos solicitados</small><div class="number" id="atualizados">0</div></div>
+  </section>
+  <section class="panel" id="painelProdutosResumo" hidden style="margin-top:-6px;">
+    <div class="panel-head"><div><h3 id="resumoTitulo">Produtos</h3><div class="subtitle" id="resumoSubtitulo"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="primary" onclick="exportarResumoPainel()">⬇ Exportar lista para separação</button><button type="button" class="outline" onclick="fecharResumoPainel()">Fechar ✕</button></div></div>
+    <div id="barraRetiradaLote" hidden style="margin:0 0 12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:#f7fbff;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;margin:0;"><input type="checkbox" id="selecionarTodosRetirada" style="width:auto;" onchange="selecionarTodosRetirada(this.checked)"> Selecionar todos</label>
+        <input id="responsavelRetiradaLote" placeholder="Nome do responsável pela retirada" style="flex:1;min-width:220px;">
+        <button type="button" class="primary" onclick="marcarRetiradaLote()">Confirmar retirada dos selecionados</button>
+      </div>
+      <small class="subtitle" id="contadorRetiradaLote">Selecione os produtos que foram retirados.</small>
+    </div>
+    <div id="resumoListaProdutos" class="resumo-lista"></div>
+  </section>
+
+  <!-- FORMULÁRIO DE CADASTRO -->
+  <section class="panel" id="cadastro">
+    <div class="panel-head">
+      <div>
+        <h3 id="formTitle">Cadastrar Produto</h3>
+        <span class="subtitle">Bipe o código EAN / GTIN abaixo:</span>
+      </div>
+      <button type="button" id="btnCancelarEdicao" class="outline danger" style="display:none;" onclick="cancelarEdicao()">Cancelar</button>
+    </div>
+
+    <form id="formProduto">
+      <input type="hidden" id="editId">
+      <div class="form-grid">
+        <div>
+          <label for="barcode">Código de Barras (GTIN / EAN)</label>
+          <div class="input-with-btn">
+            <input id="barcode" placeholder="Bipe ou digite o código" required oninput="buscarProdutoPorCodigo(this.value)" onchange="buscarProdutoPorCodigo(this.value)" onpaste="setTimeout(() => buscarProdutoPorCodigo(this.value), 0)">
+            <button type="button" class="secondary icon-btn" title="Ler Código com Câmera" onclick="abrirScannerBarcode()">📷</button>
+          </div>
+        </div>
+        
+        <div>
+          <label for="descricao">Descrição do Produto</label>
+          <input id="descricao" placeholder="Preenchido automaticamente ao bipar" required oninput="autoDetectarSetor(this.value);atualizarPesoPorDescricao(this.value)">
+          <small id="descricaoStatus" style="display:block;min-height:16px;margin-top:4px;color:var(--muted);font-size:10px;"></small>
+        </div>
+
+        <div>
+          <label for="peso">Peso / Apresentação</label>
+          <input id="peso" placeholder="Ex.: 15 kg, 500ml">
+        </div>
+
+        <div>
+          <label for="setor">Setor da Loja <span id="autoSetorBadge" class="badge-auto" style="display:none;">Sugerido!</span></label>
+          <select id="setor" required>
+            <option value="">Selecione o Setor</option>
+            <option value="Rações Dry">Rações Dry (Secas)</option>
+            <option value="Rações Úmidas">Rações Úmidas</option>
+            <option value="Pássaros">Pássaros</option>
+            <option value="Areia">Areia</option>
+            <option value="Petiscos Secos">Petiscos Secos</option>
+            <option value="Higiene e Limpeza">Higiene e Limpeza</option>
+            <option value="Farmácia e Medicamentos">Farmácia e Medicamentos</option>
+            <option value="Acessórios e Brinquedos">Acessórios e Brinquedos</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="quantidade">Quantidade</label>
+          <input id="quantidade" type="number" min="1" value="1" required>
+        </div>
+
+        <div>
+          <label for="validade">Data de Validade</label>
+          <div class="input-with-btn">
+            <input id="validade" type="date" required>
+            <button type="button" class="secondary icon-btn" title="Falar Validade por Voz" onclick="iniciarLeituraVoz()">🎤</button>
+            <button type="button" class="secondary icon-btn" title="Fotografar Validade" onclick="abrirModalOCR()">📷</button>
+          </div>
+        </div>
+
+        <div>
+          <label for="especie">Espécie Pet</label>
+          <select id="especie">
+            <option value="Cachorro">Cachorro</option>
+            <option value="Gato">Gato</option>
+            <option value="Ambos">Ambos</option>
+            <option value="Geral">Geral</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="funcionario">Funcionário Responsável</label>
+          <input id="funcionario" placeholder="Seu nome" required>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="reset" class="secondary">Limpar</button>
+        <button type="submit" class="primary" id="btnSalvar">Salvar Produto</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- PRODUTOS ACOMPANHADOS: PAINEL RECOLHÍVEL -->
+  <section class="panel produtos-panel">
+    <details class="produtos-recolhivel">
+      <summary class="produtos-resumo">
+        <span>
+          <strong>Produtos acompanhados</strong>
+          <small>Controle de validade e trocas de etiqueta</small>
+        </span>
+        <span class="produtos-seta" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="produtos-conteudo">
+        <div class="produtos-acoes-topo">
+          <span class="subtitle">Lista de produtos</span>
+          <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
+        </div>
+    <details class="filtros-recolhiveis">
+      <summary class="filtros-resumo"><span>Filtros e setores</span><span class="filtros-seta" aria-hidden="true">⌄</span></summary>
+      <div class="filter-row">
+        <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
+        <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
+        <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Pássaros</option><option>Areia</option><option>Petiscos Secos</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
+        <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="NAO_ENCONTRADO">Não achei · provável venda / local não visível</option><option value="PENDENTE">Desconto pendente</option></select>
+        <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de retiradas · 30 dias</button>
+        <button type="button" class="outline" onclick="document.getElementById('filtroSituacao').value='NAO_ENCONTRADO';renderizar();">Pasta: Não achei</button>
+        <div class="subtitle" style="grid-column:1/-1;padding:4px 2px;font-weight:700;">Produtos cadastrados no banco de dados: <strong id="total">0</strong></div>
+      </div>
+    </details>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Código (GTIN)</th>
+            <th>Produto / Peso</th>
+            <th>Setor</th>
+            <th>Qtd</th>
+            <th>Validade</th>
+            <th>Dias</th>
+            <th>Situação</th>
+            <th>Responsável</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="lista"></tbody>
+      </table>
+      <div id="vazio" class="empty">Nenhum produto cadastrado no momento.</div>
+    </div>
+      </div>
+    </details>
+  </section>
+
+  <div class="footer">CheckProdut · Petcamp Sumaré</div>
+</main>
+
+<!-- MODAL BANCO DE DADOS DA LOJA -->
+<div class="modal" id="modalBanco">
+  <div class="modal-content" style="max-width: 900px;">
+    <div class="modal-head">
+      <h4>Banco de Dados Carregado (<span id="totalBancoCount">0</span> itens)</h4>
+      <div style="display:flex; gap:6px;">
+        <button type="button" class="danger master-only" onclick="limparBancoDados()">🗑️ Limpar Banco</button>
+        <button type="button" class="outline icon-btn" onclick="fecharModalBanco()">✕</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input id="buscaBanco" placeholder="Pesquisar no catálogo importado por código ou descrição..." oninput="renderizarTabelaBanco()" style="flex:1;min-width:220px;">
+      <button type="button" class="primary" id="btnCompletarDescricoes" onclick="completarDescricoesLote()">✨ Completar descrições automaticamente</button>
+    </div>
+    <div id="statusCompletarDescricoes" style="font-size:12px;color:var(--muted);margin-bottom:10px;" aria-live="polite"></div>
+    <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Código / GTIN</th>
+            <th>Descrição do Produto</th>
+            <th>Validade na Planilha</th>
+            <th>Revisão</th>
+          </tr>
+        </thead>
+        <tbody id="listaBancoModal"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- HISTÓRICO DE RETIRADAS: últimos 30 dias -->
+<div class="modal" id="modalHistoricoRetiradas">
+  <div class="modal-content" style="max-width:1050px;">
+    <div class="modal-head">
+      <div><h4>Histórico de produtos retirados da prateleira</h4><small class="subtitle">Registros dos últimos 30 dias, com funcionário e data da retirada.</small></div>
+      <button type="button" class="outline icon-btn" onclick="fecharHistoricoRetiradas()">✕</button>
+    </div>
+    <div class="table-wrap">
+      <table style="min-width:850px;">
+        <thead><tr><th>Produto</th><th>GTIN</th><th>Validade</th><th>Setor</th><th>Responsável pela retirada</th><th>Data da retirada</th></tr></thead>
+        <tbody id="listaHistoricoRetiradas"></tbody>
+      </table>
+    </div>
+    <div class="form-actions"><button type="button" class="primary" onclick="fecharHistoricoRetiradas()">Fechar</button></div>
+  </div>
+</div>
+
+<!-- MODAIS -->
+<div class="modal" id="modalScanner">
+  <div class="modal-content">
+    <div class="modal-head">
+      <h4>Leitor de Código de Barras</h4>
+      <button type="button" class="outline icon-btn" onclick="fecharScannerBarcode()">✕</button>
+    </div>
+    <div id="reader" style="width:100%;"></div>
+  </div>
+</div>
+
+<div class="modal" id="modalOCR">
+  <div class="modal-content">
+    <div class="modal-head">
+      <h4>Fotografar Validade</h4>
+      <button type="button" class="outline icon-btn" onclick="fecharModalOCR()">✕</button>
+    </div>
+    <p style="font-size:12px; color:var(--muted);">Enquadre a data impressa na embalagem:</p>
+    <div class="camera-box">
+      <video id="videoOCR" autoplay playsinline></video>
+    </div>
+    <div id="ocrStatus" style="font-size:12px; margin:10px 0; font-weight:bold; color:var(--green);"></div>
+    <div class="form-actions">
+      <button type="button" class="secondary" onclick="fecharModalOCR()">Cancelar</button>
+      <button type="button" class="primary" onclick="capturarEProcessarOCR()">Capturar Data</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CHAVE_PRODUTOS = "checkprodut_produtos_v8";
+const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v8";
+
+let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
+let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
+let setorFiltroAtual = "TODOS";
+let filtroPainelAtual = "TODOS";
+let painelResumoAberto = false;
+let painelResumoTipo = "TODOS";
+let html5QrcodeScanner = null;
+let streamVideoOCR = null;
+let camerasBarcode = [];
+
+// Mantém setor, funcionário e espécie preenchidos entre cadastros neste dispositivo.
+const CHAVE_PREFERENCIAS_CADASTRO = "checkprodut_preferencias_cadastro_v1";
+function lerPreferenciasCadastro() {
+  try { return JSON.parse(localStorage.getItem(CHAVE_PREFERENCIAS_CADASTRO) || "{}"); }
+  catch (_) { return {}; }
+}
+function salvarPreferenciasCadastro() {
+  const preferencias = {
+    setor: document.getElementById("setor").value,
+    funcionario: document.getElementById("funcionario").value.trim(),
+    especie: document.getElementById("especie").value
+  };
+  localStorage.setItem(CHAVE_PREFERENCIAS_CADASTRO, JSON.stringify(preferencias));
+}
+function aplicarPreferenciasCadastro() {
+  const preferencias = lerPreferenciasCadastro();
+  if (preferencias.setor) document.getElementById("setor").value = preferencias.setor;
+  if (preferencias.funcionario) document.getElementById("funcionario").value = preferencias.funcionario;
+  if (preferencias.especie) document.getElementById("especie").value = preferencias.especie;
+}
+["setor", "funcionario", "especie"].forEach(id => {
+  document.getElementById(id).addEventListener("change", salvarPreferenciasCadastro);
+  document.getElementById(id).addEventListener("input", salvarPreferenciasCadastro);
+});
+aplicarPreferenciasCadastro();
+
+let cameraBarcodeAtual = null;
+const retiradasSelecionadas = new Set();
+let processandoOCR = false;
+
+// Ponte segura para os dados recebidos da nuvem (mantém as variáveis originais do sistema).
+window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
+  if (Array.isArray(novosProdutos)) produtos = novosProdutos;
+  if (Array.isArray(novoCatalogo)) catalogoBase = novoCatalogo;
+  localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
+  localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+  renderizar();
+  atualizarListaFuncionarios();
+  atualizarContadorBanco();
+  const modalBanco = document.getElementById("modalBanco");
+  if (Array.isArray(novoCatalogo) && modalBanco?.style.display === "flex") renderizarTabelaBanco();
+};
+
+async function salvar() {
+  localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
+  renderizar();
+  atualizarListaFuncionarios();
+  try {
+    if(!window.CheckProdutCloud?.isReady()) throw new Error("Nuvem ainda não conectada.");
+    await window.CheckProdutCloud.saveProducts(produtos);
+  } catch(err) {
+    console.error("Falha ao sincronizar produtos:",err);
+    alert("A alteração ficou salva neste aparelho, mas não foi sincronizada com a nuvem: "+(err?.message||err));
+    throw err;
+  }
+}
+
+// IMPORTAÇÃO: Excel, CSV e PDF com texto selecionável.
+async function extrairLinhasPDF(file) {
+  if (!window.pdfjsLib) throw new Error("O leitor de PDF não carregou. Atualize a página e tente novamente.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  const linhas = [];
+  for (let pagina=1; pagina<=pdf.numPages; pagina++) {
+    const page = await pdf.getPage(pagina);
+    const content = await page.getTextContent();
+    const grupos = new Map();
+    for (const item of content.items) {
+      if (!item.str || !item.str.trim()) continue;
+      const y = Math.round(item.transform[5] / 2) * 2;
+      if (!grupos.has(y)) grupos.set(y, []);
+      grupos.get(y).push({x:item.transform[4], texto:item.str.trim()});
+    }
+    for (const [y,itens] of grupos) {
+      itens.sort((a,b)=>a.x-b.x);
+      linhas.push({pagina,y,itens,texto:itens.map(x=>x.texto).join(" ")});
+    }
+  }
+  return linhas;
+}
+
+async function importarPDF(file) {
+  const linhas = await extrairLinhasPDF(file);
+  const norm = v => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const cabecalho = linhas.find(l => /gtin|ean/i.test(norm(l.texto)) && /data.*valid|validade/i.test(norm(l.texto)));
+  if (!cabecalho) throw new Error("Não encontrei no PDF os cabeçalhos GTIN e Data de Validade. O arquivo precisa ser um PDF com texto selecionável, exportado do relatório de validade do Bluesoft.");
+  const header = cabecalho.itens;
+  const posGtin = header.find(x=>/gtin|ean/i.test(norm(x.texto)))?.x;
+  const posVal = header.find(x=>/valid/i.test(norm(x.texto)))?.x;
+  const posDesc = header.find(x=>/descri/i.test(norm(x.texto)))?.x;
+  if (posGtin == null || posVal == null) throw new Error("Não consegui localizar as colunas GTIN e Data de Validade no cabeçalho do PDF.");
+  const dados = [];
+  for (const linha of linhas) {
+    if (linha.pagina===cabecalho.pagina && linha.y>=cabecalho.y) continue;
+    const gtinItem = linha.itens.find(x=>x.x>=posGtin-3 && x.x<(posVal-3) && /^\d{8,14}$/.test(x.texto.replace(/\D/g,"")) && x.texto.replace(/\D/g,"").length>=8);
+    const dataItem = linha.itens.find(x=>x.x>=posVal-3 && /\b\d{2}\/\d{2}\/\d{4}\b/.test(x.texto));
+    if (!gtinItem || !dataItem) continue;
+    const codigo = gtinItem.texto.replace(/\D/g,"");
+    const validade = dataItem.texto.match(/\b\d{2}\/\d{2}\/\d{4}\b/)?.[0];
+    const data = interpretarDataValidade(validade);
+    if (!data) continue;
+    const descricaoItens = linha.itens.filter(x=>posDesc!=null && x.x>posDesc-3 && x.x<posGtin-3);
+    let descricao = descricaoItens.map(x=>x.texto).join(" ").trim();
+    if (!descricao) {
+      const idx = linha.itens.indexOf(gtinItem);
+      descricao = linha.itens.filter(x=>x.x<posGtin-3 && x.x>(posDesc ?? -Infinity)-3).map(x=>x.texto).join(" ").trim();
+    }
+    dados.push({codigo,descricao:descricao||"Produto sem descrição",validade:[data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-")});
+  }
+  if (!dados.length) throw new Error("O PDF foi aberto, mas não encontrei linhas com GTIN e Data de Validade na mesma linha da tabela. Se for um PDF digitalizado como imagem, será necessário exportar em Excel ou usar um PDF com texto selecionável.");
+  return dados;
+}
+
+async function gravarImportacao(dados, origem, event) {
+  let comCodigo=0, comDescricao=0, comValidade=0, semValidade=0;
+  const novosCatalogo=[], novosAcompanhamentos=[];
+  const codigoLimpo=v=>String(v??"").trim().replace(/\.0$/,"").replace(/\s+/g,"").replace(/[^0-9]/g,"");
+  for (const item of dados) {
+    const gtin=codigoLimpo(item.codigo);
+    const descricao=String(item.descricao??"").trim();
+    if (!gtin || gtin.length<8) continue;
+    comCodigo++;
+    if (descricao && !descricaoAusente(descricao)) comDescricao++;
+    const dataValidade=interpretarDataValidade(item.validade);
+    const validade=dataValidade?[dataValidade.getFullYear(),String(dataValidade.getMonth()+1).padStart(2,"0"),String(dataValidade.getDate()).padStart(2,"0")].join("-"):"";
+    const descFinal=descricao||"Produto sem descrição";
+    novosCatalogo.push({codigo:gtin,descricao:descFinal,validadeOrigem:validade});
+    if(validade){comValidade++;novosAcompanhamentos.push({barcode:gtin,descricao:descFinal,validade});}
+    else semValidade++;
+  }
+  if(!comCodigo) throw new Error("Não encontrei códigos GTIN válidos no arquivo.");
+  const chaveCatalogo=x=>[String(x.codigo||"").trim(),String(x.descricao||"").trim().toLowerCase(),String(x.validadeOrigem||"").trim()].join("|");
+  const existentes=new Set(catalogoBase.map(chaveCatalogo));
+  let adicionados=0,repetidos=0,descricoesAtualizadas=0;
+  for(const item of novosCatalogo){
+    const key=chaveCatalogo(item);
+    if(existentes.has(key)){repetidos++;continue;}
+    const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
+    if(pendente){pendente.descricao=item.descricao;pendente.id=window.idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
+    item.id=window.idCatalogo(item);
+    catalogoBase.push(item);existentes.add(key);adicionados++;
+  }
+  // Normaliza também registros antigos sem ID para que a sincronização seja estável.
+  catalogoBase.forEach(item=>{if(!item.id)item.id=window.idCatalogo(item);});
+  let acompanhamentosNovos=0;
+  const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
+  for(const item of novosAcompanhamentos){
+    const key=[item.barcode,interpretarDataValidade(item.validade)?.getTime()||"",item.descricao.trim().toLowerCase()].join("|");
+    if(chavesProdutos.has(key))continue;
+    produtos.push({id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:1,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true});
+    chavesProdutos.add(key);acompanhamentosNovos++;
+  }
+  localStorage.setItem(CHAVE_BASE_CATALOGO,JSON.stringify(catalogoBase));
+  try {
+    if (!window.CheckProdutCloud?.isReady?.()) throw new Error("A conexão com a nuvem ainda não está pronta. Aguarde o status Nuvem conectada e tente importar novamente.");
+    await window.CheckProdutCloud.saveCatalog(catalogoBase);
+    if(acompanhamentosNovos) await salvar();
+  } catch (erroNuvem) {
+    console.error("Falha ao sincronizar banco importado:", erroNuvem);
+    alert("O banco foi processado neste navegador, mas não foi possível confirmar o envio para a nuvem.\n\n" + (erroNuvem?.message || erroNuvem));
+    throw erroNuvem;
+  }
+  if(!acompanhamentosNovos) { renderizar(); }
+  else { renderizar(); }
+  atualizarContadorBanco();renderizarTabelaBanco();atualizarListaFuncionarios();
+  alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
+  if(event?.target)event.target.value="";
+}
+
+async function carregarRelatorioLoja(event) {
+  const file=event.target.files?.[0];
+  if(!file)return;
+  try {
+    const ext=file.name.split(".").pop().toLowerCase();
+    if(ext==="pdf"){
+      const dados=await importarPDF(file);
+      await gravarImportacao(dados,"PDF",event);
+      return;
+    }
+    if(!["xlsx","xls","csv"].includes(ext))throw new Error("Formato não suportado. Use Excel, CSV ou PDF.");
+    const workbook=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array",cellDates:true,cellNF:true});
+    const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
+    const ehGtin=h=>/gtin|ean/.test(h);
+    const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
+    const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
+    const ehValidade=h=>/valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
+    const dados=[];
+    for(const nomeAba of workbook.SheetNames){
+      const rows=XLSX.utils.sheet_to_json(workbook.Sheets[nomeAba],{header:1,raw:true,defval:""});
+      if(!rows.length)continue;
+      let headerIdx=-1,colGtin=-1,colDesc=-1,colVal=-1,score=-1;
+      for(let i=0;i<Math.min(rows.length,40);i++){
+        const hs=(rows[i]||[]).map(norm);
+        const gi=hs.findIndex(ehCodigo),di=hs.findIndex(ehDescricao),vi=hs.findIndex(ehValidade);
+        const sc=(gi>=0?(ehGtin(hs[gi])?4:2):0)+(di>=0?2:0)+(vi>=0?4:0);
+        if(gi>=0&&di>=0&&vi>=0&&sc>score){headerIdx=i;colGtin=gi;colDesc=di;colVal=vi;score=sc;}
+      }
+      if(headerIdx<0)continue;
+      for(let i=headerIdx+1;i<rows.length;i++){
+        const row=rows[i]||[];
+        const gtin=String(row[colGtin]??"").trim().replace(/\.0$/,"").replace(/\D/g,"");
+        if(!gtin||gtin.length<8)continue;
+        let validadeImportada=row[colVal];
+        // Se a célula Excel estiver formatada apenas como mês/ano, considerar o último dia do mês.
+        const enderecoValidade=XLSX.utils.encode_cell({r:i,c:colVal});
+        const celulaValidade=workbook.Sheets[nomeAba][enderecoValidade];
+        if(validadeImportada instanceof Date && celulaValidade?.z) {
+          const formato=String(celulaValidade.z).toLowerCase().replace(/"[^"]*"/g,"");
+          if(/[my]/.test(formato) && !/d/.test(formato)) validadeImportada=new Date(validadeImportada.getFullYear(),validadeImportada.getMonth()+1,0);
+        }
+        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:validadeImportada});
+      }
+    }
+    await gravarImportacao(dados,"Excel/CSV",event);
+  }catch(err){
+    console.error("Erro ao importar relatório:",err);
+    alert("Não foi possível importar o arquivo.\n\n"+(err?.message||err));
+    event.target.value="";
+  }
+}
+
+// Importa conteúdo copiado do Excel ou colado de um bloco de notas.
+// Exige cabeçalhos para não confundir código interno com GTIN.
+function abrirColagemEspecial() {
+  const painel=document.getElementById("painelImportacao");
+  painel.open=true;
+  painel.scrollIntoView({behavior:"smooth",block:"start"});
+  setTimeout(()=>document.getElementById("textoImportacao")?.focus({preventScroll:true}),250);
+}
+
+async function importarTextoColado() {
+  const campo=document.getElementById("textoImportacao");
+  const status=document.getElementById("statusImportacaoTexto");
+  const texto=campo.value.trim();
+  if(!texto){status.textContent="Cole os dados antes de importar.";return;}
+  const linhas=texto.replace(/^\\uFEFF/,"").split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+  const norm=v=>String(v??"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
+  const ehGtin=h=>/\\b(gtin|ean)\\b/.test(h)||/codigo.*barra|cod.*barra|barras/.test(h);
+  const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
+  const ehValidade=h=>/valid|venc|data.*(val|venc)/.test(h);
+  const separar=linha=>linha.includes("\\t")?linha.split("\\t"):linha.split(/\\s*;\\s*/);
+  const matriz=linhas.map(separar);
+  let dados=[],cabecalho=-1,colGtin=-1,colDesc=-1,colVal=-1;
+  for(let i=0;i<Math.min(matriz.length,40);i++){
+    const h=matriz[i].map(norm),g=h.findIndex(ehGtin),d=h.findIndex(ehDescricao),v=h.findIndex(ehValidade);
+    if(g>=0&&d>=0&&v>=0){cabecalho=i;colGtin=g;colDesc=d;colVal=v;break;}
+  }
+  if(cabecalho>=0){
+    for(let i=cabecalho+1;i<matriz.length;i++){
+      const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\\.0$/,"").replace(/\\D/g,"");
+      if(/^\\d{8,14}$/.test(gtin))dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+    }
+  } else {
+    // Relatórios copiados de PDF/Excel às vezes quebram um GTIN em várias linhas e perdem os cabeçalhos.
+    // Reúne fragmentos numéricos consecutivos e usa a primeira data posterior ao código como validade candidata.
+    const datas=[];
+    for(let i=0;i<linhas.length;i++){
+      const m=linhas[i].match(/\\b(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{4})\\b/);
+      if(m)datas.push({linha:i,data:m[1]});
+    }
+    const codigos=[];
+    for(let i=0;i<linhas.length;i++){
+      if(!/^\\d{3,14}(?:\\.0)?$/.test(linhas[i]))continue;
+      let numero=linhas[i].replace(/\\.0$/,"").replace(/\\D/g,""),fim=i;
+      while(fim+1<linhas.length&&numero.length<14&&/^\\d{1,7}(?:\\.0)?$/.test(linhas[fim+1])&&![8,12,13,14].includes(numero.length)){
+        const proximo=linhas[fim+1].replace(/\\.0$/,"").replace(/\\D/g,"");
+        if(numero.length+proximo.length>14)break;
+        fim++;numero+=proximo;
+      }
+      if(/^\\d{8,14}$/.test(numero)){codigos.push({codigo:numero,inicio:i,fim});i=fim;}
+    }
+    for(const c of codigos){
+      const anterior=codigos.filter(x=>x.fim<c.inicio).pop();
+      const proximo=codigos.find(x=>x.inicio>c.fim);
+      const limite=proximo?proximo.inicio:linhas.length;
+      const data=datas.find(x=>x.linha>c.fim&&x.linha<limite);
+      const descricaoLinhas=linhas.slice(anterior?anterior.fim+1:0,c.inicio)
+        .filter(x=>!/^\\d+(?:[.,]\\d+)?$/.test(x)&&!/^\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{4}$/.test(x)&&!/^ativo$/i.test(x));
+      const descricao=descricaoLinhas.find(x=>/[A-Za-zÀ-ÿ]{3}/.test(x))||"Produto sem descrição";
+      if(data)dados.push({codigo:c.codigo,descricao,validade:data.data});
+    }
+    if(!dados.length){
+      status.textContent="Não consegui separar com segurança GTIN, descrição e validade nesse texto. Copie as linhas completas do produto ou inclua o cabeçalho do relatório.";
+      return;
+    }
+    status.textContent="Formato sem cabeçalho reconhecido. Identifiquei "+dados.length+" produto(s) pelo código e pela primeira data após cada GTIN. Confira os dados no resumo antes de continuar.";
+  }
+  try {
+    await gravarImportacao(dados,"Texto colado",null);
+    if(cabecalho>=0)status.textContent="Texto processado. Confira o resumo da importação.";
+    campo.value="";
+  } catch(err) {
+    status.textContent=err.message||"Não foi possível importar o texto.";
+  }
+}
+// BUSCA AUTOMÁTICA AO BIPAR
+let timerBuscaInternet = null;
+let ultimaBuscaInternet = "";
+const cacheBuscaInternet = new Map();
+
+function mostrarStatusDescricao(texto, erro=false) {
+  const el = document.getElementById("descricaoStatus");
+  if (!el) return;
+  el.textContent = texto;
+  el.style.color = erro ? "#b23b39" : "#66756e";
+}
+
+// Consulta bases públicas pelo código de barras. O resultado só é salvo
+// quando a base retorna um nome de produto utilizável.
+// Cadastro de referência conferido por EAN. Prioridade sobre descrições genéricas/importadas.
+const descricoesVerificadasEAN = {
+  "7896181215387": "Ração Royal Canin Veterinary Diet Gastrointestinal Feline S/O para Gatos Adultos - 1,5 kg",
+};
+function descricaoVerificadaPorEAN(ean) {
+  return descricoesVerificadasEAN[String(ean || "").replace(/\\s+/g, "").trim()] || "";
+}
+
+async function pesquisarDescricaoNaInternet(ean) {
+  const codigo = String(ean || "").replace(/\s+/g, "").trim();
+  if (!/^\d{8,14}$/.test(codigo)) return "";
+  if (cacheBuscaInternet.has(codigo)) return cacheBuscaInternet.get(codigo);
+
+  // APIs oficiais: prioriza o banco de alimentação animal e consulta também
+  // o catálogo geral com product_type=all para permitir redirecionamentos.
+  const bases = [
+    // Catálogo aberto Datakick: consulta direta por UPC/EAN.
+    {nome:"Datakick (GTIN Search)", url:"https://www.gtinsearch.org/api/items/" + encodeURIComponent(codigo)},
+    {nome:"Open Pet Food Facts", url:"https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
+    {nome:"Open Food Facts v3 (petfood)", url:"https://world.openfoodfacts.org/api/v3.6/product/" + encodeURIComponent(codigo) + ".json?product_type=petfood&fields=code,product_name,product_name_pt,abbreviated_product_name,generic_name,generic_name_pt,brands,quantity,categories"},
+    {nome:"Open Food Facts v3 (todos os tipos)", url:"https://world.openfoodfacts.org/api/v3.6/product/" + encodeURIComponent(codigo) + ".json?product_type=all&fields=code,product_name,product_name_pt,abbreviated_product_name,generic_name,generic_name_pt,brands,quantity,categories"},
+    {nome:"Open Products Facts", url:"https://world.openproductsfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
+    {nome:"Open Food Facts Brasil", url:"https://br.openfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"}
+  ];
+
+  const extrairProduto = dados => {
+    if (!dados || typeof dados !== "object") return null;
+    // Datakick pode devolver o item diretamente; Open* devolve {product:{...}}.
+    const p = dados.product && typeof dados.product === "object" ? dados.product
+      : (dados.item && typeof dados.item === "object" ? dados.item : dados);
+    if (!p) return null;
+    // status=0 indica ausência no Open Food Facts, mas outras APIs podem usar campos diferentes.
+    const possuiNome = [p.product_name_pt, p.product_name, p.abbreviated_product_name,
+      p.generic_name_pt, p.generic_name, p.product_name_en, p.title, p.name,
+      p.description, p.product].some(v => typeof v === "string" && v.trim().length >= 3);
+    if (dados.status === 0 && !possuiNome) return null;
+    const nome = [
+      p.product_name_pt, p.product_name, p.abbreviated_product_name,
+      p.generic_name_pt, p.generic_name, p.product_name_en,
+      p.title, p.name, p.description, p.product
+    ].find(v => typeof v === "string" && v.trim().length >= 3);
+    if (!nome) return null;
+    const marca = String(p.brands || p.brand || p.brand_name || p.manufacturer || "").trim();
+    const quantidade = String(p.quantity || p.size || p.net_content || "").trim();
+    return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
+  };
+
+  const consultar = async base => {
+    const controlador = new AbortController();
+    const limite = setTimeout(() => controlador.abort(), 9000);
+    try {
+      const resposta = await fetch(base.url, {
+        method:"GET",
+        mode:"cors",
+        headers:{"Accept":"application/json"},
+        signal:controlador.signal,
+        cache:"no-store"
+      });
+      if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+      const dados = await resposta.json();
+      return {nome:base.nome, descricao:extrairProduto(dados), erro:null};
+    } catch (erro) {
+      console.warn("Falha na fonte " + base.nome + " para EAN " + codigo + ":", erro);
+      return {nome:base.nome, descricao:"", erro:String(erro?.message || erro)};
+    } finally {
+      clearTimeout(limite);
+    }
+  };
+
+  const resultados = await Promise.all(bases.map(consultar));
+  // Só aceita resposta com nome de produto; não inventa descrição a partir de marca/categoria.
+  const encontrado = resultados.find(r => r.descricao);
+  const descricao = encontrado?.descricao || "";
+  if (descricao) {
+    cacheBuscaInternet.set(codigo, descricao);
+    return descricao;
+  }
+  const falhas = resultados.filter(r => r.erro).length;
+  console.info("Busca EAN " + codigo + ": " + (falhas === bases.length
+    ? "todas as fontes falharam por conexão/HTTP."
+    : "fontes consultadas sem cadastro correspondente."), resultados);
+  return "";
+}
+
+function atualizarPesoPorDescricao(descricao) {
+  const campoPeso = document.getElementById("peso");
+  if (!campoPeso) return "";
+  const texto = String(descricao || "").replace(/,/g, ".");
+  // Identifica apresentações como 1,5 kg, 500 g, 500 ml, 2 L ou 10.1kg.
+  const achado = texto.match(/\b(\d+(?:\.\d+)?)\s*(kg|quilo(?:s)?|g|gr|gramas?|ml|mL|l|litros?)\b/i);
+  if (!achado) return "";
+  let valor = achado[1].replace(/\.0+$/, "");
+  let unidade = achado[2].toLowerCase();
+  if (unidade === "quilo" || unidade === "quilos") unidade = "kg";
+  else if (unidade === "gr" || unidade === "grama" || unidade === "gramas") unidade = "g";
+  else if (unidade === "litro" || unidade === "litros") unidade = "L";
+  else if (unidade === "l") unidade = "L";
+  else if (unidade === "ml") unidade = "ml";
+  else if (unidade === "kg") unidade = "kg";
+  else unidade = "g";
+  campoPeso.value = valor + unidade;
+  return campoPeso.value;
+}
+
+async function buscarProdutoPorCodigo(codigo) {
+  const ean = String(codigo || "").replace(/\s+/g, "").trim();
+  const campoDescricao = document.getElementById("descricao");
+  const campoCodigo = document.getElementById("barcode");
+  if (!campoDescricao || !campoCodigo) return;
+
+  if (!ean) {
+    clearTimeout(timerBuscaInternet);
+    ultimaBuscaInternet = "";
+    mostrarStatusDescricao("");
+    return;
+  }
+
+  // Aguarda o leitor terminar de enviar todos os dígitos antes de consultar.
+  clearTimeout(timerBuscaInternet);
+  if (!/^\d{8,14}$/.test(ean)) {
+    mostrarStatusDescricao("Aguardando o código completo (8 a 14 números)...");
+    return;
+  }
+
+  // Referência conferida por EAN tem prioridade sobre catálogo antigo/genérico.
+  const descricaoVerificada = descricaoVerificadaPorEAN(ean);
+  if (descricaoVerificada) {
+    let catalogoAlterado = false;
+    catalogoBase.forEach(c => {
+      if (String(c.codigo || "").replace(/\\s+/g, "").trim() === ean && c.descricao !== descricaoVerificada) {
+        c.descricao = descricaoVerificada;
+        c.origemDescricao = "EAN verificado";
+        catalogoAlterado = true;
+      }
+    });
+    produtos.forEach(p => {
+      if (String(p.barcode || p.codigo || "").replace(/\\s+/g, "").trim() === ean && p.descricao !== descricaoVerificada) {
+        p.descricao = descricaoVerificada;
+        p.origemDescricao = "EAN verificado";
+      }
+    });
+    if (catalogoAlterado) {
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      window.CheckProdutCloud?.saveCatalog(catalogoBase);
+      renderizarTabelaBanco();
+    }
+    localStorage.setItem("checkprodut_produtos_v8", JSON.stringify(produtos));
+    campoDescricao.value = descricaoVerificada;
+    atualizarPesoPorDescricao(descricaoVerificada);
+    autoDetectarSetor(descricaoVerificada);
+    mostrarStatusDescricao("Descrição conferida pelo EAN.");
+    ultimaBuscaInternet = ean;
+    return;
+  }
+
+  // Primeiro consulta o catálogo sincronizado. Se não encontrar, consulta
+  // também os produtos já cadastrados no acompanhamento (barcode + descricao).
+  // Isso mantém a busca automática mesmo quando o catálogo foi limpo/reimportado.
+  const item = catalogoBase.find(c => String(c.codigo || "").replace(/\s+/g, "").trim() === ean
+    && !descricaoAusente(c.descricao));
+  const produtoSalvo = !item && produtos.find(p =>
+    String(p.barcode || p.codigo || "").replace(/\s+/g, "").trim() === ean
+    && !descricaoAusente(p.descricao)
+  );
+  const registroEncontrado = item || produtoSalvo;
+  if (registroEncontrado) {
+    campoDescricao.value = registroEncontrado.descricao;
+    atualizarPesoPorDescricao(registroEncontrado.descricao);
+    autoDetectarSetor(registroEncontrado.descricao);
+    mostrarStatusDescricao(item ? "Descrição encontrada no banco da loja." : "Descrição encontrada nos produtos já cadastrados.");
+    if (item?.validadeOrigem && /^\d{4}-\d{2}-\d{2}$/.test(item.validadeOrigem)) {
+      document.getElementById("validade").value = item.validadeOrigem;
+    }
+    ultimaBuscaInternet = ean;
+    return;
+  }
+
+  // Permite nova tentativa quando a consulta anterior falhar.
+  if (ultimaBuscaInternet === ean) return;
+  timerBuscaInternet = setTimeout(async () => {
+    if (campoCodigo.value.replace(/\s+/g, "").trim() !== ean) return;
+    mostrarStatusDescricao("Não consta no banco. Pesquisando nas bases públicas...");
+    const descricao = await pesquisarDescricaoNaInternet(ean);
+    if (campoCodigo.value.replace(/\s+/g, "").trim() !== ean) return;
+
+    if (!descricao) {
+      ultimaBuscaInternet = "";
+      mostrarStatusDescricao("Não encontrei esse EAN nas bases públicas. Confira o código ou digite a descrição manualmente.", true);
+      return;
+    }
+    ultimaBuscaInternet = ean;
+
+    // Preenche automaticamente, mas deixa o campo livre para correção pelo funcionário.
+    campoDescricao.value = descricao;
+    atualizarPesoPorDescricao(descricao);
+    autoDetectarSetor(descricao);
+    mostrarStatusDescricao("Descrição sugerida pela internet. Confira ou corrija antes de salvar.");
+
+    // Grava a sugestão no catálogo compartilhado; a correção digitada no cadastro
+    // será aplicada ao catálogo no momento em que o funcionário salvar o produto.
+    const registro = {codigo: ean, descricao, validadeOrigem: "", origemDescricao: "consulta pública"};
+    const existente = catalogoBase.find(c => String(c.codigo || "").trim() === ean);
+    if (existente) Object.assign(existente, registro);
+    else catalogoBase.push(registro);
+    localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+    window.CheckProdutCloud?.saveCatalog(catalogoBase);
+    atualizarContadorBanco();
+    renderizarTabelaBanco();
+  }, 450);
+}
+
+// Pesquisa descrições ausentes em bases públicas e grava somente resultados encontrados.
+const pausa = ms => new Promise(resolve => setTimeout(resolve, ms));
+function descricaoAusente(valor) {
+  return !String(valor || "").trim() || String(valor).trim().toLowerCase() === "produto sem descrição";
+}
+async function completarDescricoesLote() {
+  const btn = document.getElementById("btnCompletarDescricoes");
+  const status = document.getElementById("statusCompletarDescricoes");
+  const pendentes = catalogoBase.filter(item => descricaoAusente(item.descricao) && /^\d{8,14}$/.test(String(item.codigo || "").trim()));
+  if (!pendentes.length) {
+    status.textContent = "Não há produtos com descrição pendente e código válido.";
+    return;
+  }
+  if (!confirm("Vou pesquisar " + pendentes.length + " produto(s). O processo pode levar alguns minutos. Deseja continuar?")) return;
+  btn.disabled = true;
+  let encontrados = 0, naoEncontrados = 0;
+  try {
+    for (let i=0; i<pendentes.length; i++) {
+      const item = pendentes[i];
+      status.textContent = "Pesquisando " + (i+1) + " de " + pendentes.length + " · GTIN " + item.codigo + " · encontrados: " + encontrados;
+      const descricao = await pesquisarDescricaoNaInternet(String(item.codigo).trim());
+      if (descricao) {
+        // Revalida o registro original para nunca sobrescrever uma descrição já corrigida.
+        const atual = catalogoBase.find(x => String(x.codigo) === String(item.codigo) && descricaoAusente(x.descricao));
+        if (atual) {
+          atual.descricao = descricao;
+          atual.origemDescricao = "consulta pública";
+          encontrados++;
+          localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+          await window.CheckProdutCloud?.saveCatalog(catalogoBase);
+        } else {
+          naoEncontrados++;
+        }
+      } else {
+        naoEncontrados++;
+      }
+      renderizarTabelaBanco();
+      // Respeita o limite público de consultas; evita disparos em massa.
+      if (i < pendentes.length-1) await pausa(4300);
+    }
+    status.textContent = "Concluído! " + encontrados + " descrição(ões) preenchida(s); " + naoEncontrados + " sem resultado. Confira os nomes antes de usar.";
+    atualizarContadorBanco();
+  } catch (erro) {
+    console.error("Erro ao completar catálogo:", erro);
+    status.textContent = "O processo foi interrompido por uma falha. Os resultados já encontrados foram salvos; tente novamente mais tarde.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// MODAL PARA VISUALIZAR O BANCO DE DADOS CARREGADO
+function abrirModalBanco() {
+  document.getElementById("modalBanco").style.display = "flex";
+  renderizarTabelaBanco();
+}
+
+function fecharModalBanco() {
+  document.getElementById("modalBanco").style.display = "none";
+}
+
+function editarDescricaoCatalogo(codigo) {
+  const item = catalogoBase.find(x => String(x.codigo) === String(codigo));
+  if (!item) return;
+  const nova = prompt("Corrija a descrição do produto (GTIN " + codigo + "):", item.descricao || "");
+  if (nova === null) return;
+  const texto = nova.trim();
+  if (!texto) { alert("A descrição não pode ficar vazia."); return; }
+  item.descricao = texto;
+  item.origemDescricao = "revisada manualmente";
+  localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+  window.CheckProdutCloud?.saveCatalog(catalogoBase);
+  renderizarTabelaBanco();
+  atualizarContadorBanco();
+}
+
+function renderizarTabelaBanco() {
+  const busca = (document.getElementById("buscaBanco")?.value || "").toLowerCase();
+  const tbody = document.getElementById("listaBancoModal");
+  document.getElementById("totalBancoCount").textContent = catalogoBase.length;
+  const filtrados = catalogoBase.filter(c =>
+    String(c.codigo || "").toLowerCase().includes(busca) || String(c.descricao || "").toLowerCase().includes(busca)
+  ).sort((a,b) => {
+    const da = String(a.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
+    const descricaoB = String(b.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
+    return da - descricaoB || String(a.descricao || "").localeCompare(String(b.descricao || ""), "pt-BR");
+  });
+  tbody.innerHTML = "";
+  if (filtrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
+    return;
+  }
+  filtrados.forEach(item => {
+    const tr = document.createElement("tr");
+    const tdCodigo = document.createElement("td");
+    const codigo = document.createElement("span");
+    codigo.className = "code-badge";
+    codigo.textContent = item.codigo || "";
+    tdCodigo.appendChild(codigo);
+    const tdDescricao = document.createElement("td");
+    tdDescricao.textContent = item.descricao || "Produto sem descrição";
+    const tdValidade = document.createElement("td");
+    tdValidade.textContent = item.validadeOrigem ? formatarData(item.validadeOrigem) : "Não informada";
+    const tdAcao = document.createElement("td");
+    const editar = document.createElement("button");
+    editar.type = "button";
+    editar.className = "secondary";
+    editar.textContent = "✏️ Editar";
+    editar.onclick = () => editarDescricaoCatalogo(item.codigo);
+    tdAcao.appendChild(editar);
+    tr.append(tdCodigo,tdDescricao,tdValidade,tdAcao);
+    tbody.appendChild(tr);
+  });
+}
+
+async function limparBancoDados() {
+  if (!confirm("ATENÇÃO: deseja apagar o catálogo importado da nuvem da Petcamp e deste aparelho? Esta ação afeta todos os usuários da loja.")) return;
+  const botao=document.querySelector("#modalBanco .danger.master-only");
+  if(botao){botao.disabled=true;botao.textContent="Apagando...";}
+  try {
+    await window.CheckProdutCloud?.clearCatalog();
+    catalogoBase=[];
+    localStorage.removeItem(CHAVE_BASE_CATALOGO);
+    atualizarContadorBanco();
+    renderizarTabelaBanco();
+    fecharModalBanco();
+    alert("Catálogo apagado da nuvem compartilhada e deste aparelho.");
+  } catch(err) {
+    console.error("Falha ao limpar catálogo compartilhado:",err);
+    alert("Não foi possível apagar todo o catálogo da nuvem. Nenhum sucesso foi confirmado. Tente novamente ou confira a conexão.");
+  } finally {
+    if(botao){botao.disabled=false;botao.textContent="🗑️ Limpar Banco";}
+  }
+}
+
+function atualizarContadorBanco() {
+  const btn = document.querySelector("header button[onclick='abrirModalBanco()']");
+  if (btn) btn.textContent = `📂 Ver Banco de Dados (${catalogoBase.length} itens)`;
+}
+
+function autoDetectarSetor(descricao) {
+  const desc = descricao.toLowerCase();
+  const selectSetor = document.getElementById("setor");
+  const badge = document.getElementById("autoSetorBadge");
+
+  let setorDetectado = "";
+  if (desc.includes("petisco") || desc.includes("bifinho") || desc.includes("snack") || desc.includes("ossinho")) {
+    setorDetectado = "Petiscos Secos";
+  } else if (desc.includes("passaro") || desc.includes("pássaro") || desc.includes("calopsita") || desc.includes("canario") || desc.includes("canário") || desc.includes("periquito") || desc.includes("papagaio") || desc.includes("coleiro") || desc.includes("trinca-ferro")) {
+    setorDetectado = "Pássaros";
+  } else if (desc.includes("areia") || desc.includes("sílica") || desc.includes("silica") || desc.includes("granulado higiênico") || desc.includes("granulado higienico")) {
+    setorDetectado = "Areia";
+  } else if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal") || desc.includes("biofresh")) {
+    setorDetectado = (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata") || desc.includes("churu")) ? "Rações Úmidas" : "Rações Dry";
+  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("hydra") || desc.includes("xixi")) {
+    setorDetectado = "Higiene e Limpeza";
+  } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("ectocid") || desc.includes("marboxleish") || desc.includes("lactobac") || desc.includes("glicol")) {
+    setorDetectado = "Farmácia e Medicamentos";
+  } else if (desc.includes("brinquedo") || desc.includes("coleira") || desc.includes("rasqueadeira") || desc.includes("arranhador")) {
+    setorDetectado = "Acessórios e Brinquedos";
+  }
+
+  if (setorDetectado) {
+    selectSetor.value = setorDetectado;
+    badge.style.display = "inline-block";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function interpretarDataValidade(dataStr) {
+  if (dataStr === null || dataStr === undefined || dataStr === "") return null;
+
+  // Aceita Date, timestamp do Firestore/JavaScript e serial de data do Excel.
+  if (dataStr instanceof Date && !isNaN(dataStr.getTime())) {
+    const d = new Date(dataStr.getFullYear(), dataStr.getMonth(), dataStr.getDate());
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  if (typeof dataStr === "number" && Number.isFinite(dataStr)) {
+    if (dataStr > 20000 && dataStr < 80000) {
+      const excel = new Date(Date.UTC(1899, 11, 30) + dataStr * 86400000);
+      return new Date(excel.getUTCFullYear(), excel.getUTCMonth(), excel.getUTCDate());
+    }
+    if (dataStr > 100000000000) dataStr = new Date(dataStr);
+    else if (dataStr > 1000000000) dataStr = new Date(dataStr * 1000);
+  }
+  if (dataStr && typeof dataStr === "object" && typeof dataStr.toDate === "function") {
+    dataStr = dataStr.toDate();
+    return interpretarDataValidade(dataStr);
+  }
+
+  const valor = String(dataStr).trim();
+  // Alguns relatórios exportam a data como texto com horário ou com ano/mês/dia.
+  const textoDataHora = valor.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})[ T].*$/);
+  if (textoDataHora) return interpretarDataValidade(textoDataHora[1]+"/"+textoDataHora[2]+"/"+textoDataHora[3]);
+  // Quando o Excel entrega o serial como texto, converte antes de analisar datas escritas.
+  if (/^\d{5}(?:\.0+)?$/.test(valor)) {
+    const serial = Number(valor);
+    if (serial > 20000 && serial < 80000) {
+      const excel = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+      return new Date(excel.getUTCFullYear(), excel.getUTCMonth(), excel.getUTCDate());
+    }
+  }
+  // Validades informadas somente por mês/ano vencem no último dia do mês.
+  const mesesTexto = {jan:1,janeiro:1,fev:2,fevereiro:2,mar:3,marco:3,abr:4,abril:4,mai:5,maio:5,jun:6,junho:6,jul:7,julho:7,ago:8,agosto:8,set:9,setembro:9,out:10,outubro:10,nov:11,novembro:11,dez:12,dezembro:12};
+  const normalizado = valor.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  const mesAnoTexto = normalizado.match(/^(jan|janeiro|fev|fevereiro|mar|marco|abr|abril|mai|maio|jun|junho|jul|julho|ago|agosto|set|setembro|out|outubro|nov|novembro|dez|dezembro)[\s./-]*(?:de[\s]*)?(20\d{2}|\d{2})$/);
+  const mesAnoNumero = normalizado.match(/^(0?[1-9]|1[0-2])[\s./-](20\d{2}|\d{2})$/);
+  if (mesAnoTexto || mesAnoNumero) {
+    const m = mesAnoTexto ? mesesTexto[mesAnoTexto[1]] : Number(mesAnoNumero[1]);
+    let a = Number(mesAnoTexto ? mesAnoTexto[2] : mesAnoNumero[2]);
+    if (a < 100) a += a < 50 ? 2000 : 1900;
+    if (a >= 2000 && a <= 2100) return new Date(a, m, 0);
+  }
+
+  let ano, mes, dia;
+  let partes = valor.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/);
+  if (partes) {
+    ano = Number(partes[1]); mes = Number(partes[2]); dia = Number(partes[3]);
+  } else {
+    partes = valor.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/);
+    if (!partes) return null;
+    dia = Number(partes[1]); mes = Number(partes[2]); ano = Number(partes[3]);
+    if (ano < 100) ano += ano < 50 ? 2000 : 1900;
+  }
+  if (ano < 2000 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  const data = new Date(ano, mes - 1, dia);
+  if (data.getFullYear() !== ano || data.getMonth() !== mes - 1 || data.getDate() !== dia) return null;
+  data.setHours(0,0,0,0);
+  return data;
+}
+
+function diasRestantes(dataStr) {
+  const val = interpretarDataValidade(dataStr);
+  if (!val) return null;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  return Math.round((val.getTime() - hoje.getTime()) / 86400000);
+}
+
+function situacao(p) {
+  const dias=diasRestantes(p.validade);
+  if(dias===null)return {texto:"Validade não reconhecida",classe:"warn",faixa:0};
+  if(dias<=90)return {texto:"Desconto de 30%",classe:"urgent",faixa:30};
+  if(dias<=120)return {texto:"Desconto de 15%",classe:"warn",faixa:15};
+  return {texto:"Acompanhamento",classe:"ok",faixa:0};
+}
+function descontoSolicitado(p,faixa) {
+  return faixa===30 ? !!(p.desconto30Solicitado || (p.etiquetaAtualizada && situacao(p).faixa===30))
+                    : !!(p.desconto15Solicitado || (p.etiquetaAtualizada && situacao(p).faixa===15));
+}
+function precisaSolicitarDesconto(p) {
+  const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+  return dias!==null&&dias>=0&&!p.naoEncontrado&&!p.retiradoVenda&&!!faixa&&!descontoSolicitado(p,faixa);
+}
+
+function formatarData(dataStr) {
+  const data = interpretarDataValidade(dataStr);
+  if (!data) return "—";
+  return data.toLocaleDateString("pt-BR");
+}
+
+document.getElementById("formProduto").addEventListener("submit", function(e) {
+  e.preventDefault();
+  const editId = document.getElementById("editId").value;
+  const validadeDigitada = interpretarDataValidade(document.getElementById("validade").value);
+  const hojeCadastro = new Date(); hojeCadastro.setHours(0,0,0,0);
+  if (!validadeDigitada) { alert("Informe uma data de validade válida."); return; }
+  if (validadeDigitada < hojeCadastro) { alert("CADASTRO NÃO PERMITIDO! Este produto está VENCIDO. Retire-o imediatamente da área de venda. O sistema não permite cadastrar produto vencido."); return; }
+  const p = {
+    id: editId ? Number(editId) : Date.now(),
+    barcode: document.getElementById("barcode").value.trim(),
+    descricao: document.getElementById("descricao").value.trim(),
+    peso: document.getElementById("peso").value.trim(),
+    setor: document.getElementById("setor").value,
+    quantidade: Number(document.getElementById("quantidade").value),
+    validade: document.getElementById("validade").value,
+    especie: document.getElementById("especie").value,
+    funcionario: document.getElementById("funcionario").value.trim(),
+    etiquetaAtualizada: editId ? !!produtos.find(x => x.id === Number(editId))?.etiquetaAtualizada : false
+  };
+
+  if (editId) {
+    const idx = produtos.findIndex(x => x.id === Number(editId));
+    if (idx !== -1) produtos[idx] = p;
+  } else {
+    produtos.push(p);
+  }
+
+  // Todo cadastro com GTIN e descrição válida alimenta o catálogo compartilhado.
+  // Se o código já existir sem descrição, completa os registros pendentes;
+  // se ainda não existir, cria uma entrada para consultas futuras.
+  const gtin = String(p.barcode || "").trim().replace(/\s+/g, "").replace(/[^0-9]/g, "");
+  const descricaoProduto = String(p.descricao || "").trim();
+  if (gtin && descricaoProduto && descricaoAusente(descricaoProduto) === false) {
+    const registrosDoCodigo = catalogoBase.filter(item => String(item.codigo || "").trim() === gtin);
+    const registroPrincipal = registrosDoCodigo[0];
+    if (registroPrincipal) {
+      // A descrição revisada pelo funcionário passa a ser a referência do catálogo.
+      registroPrincipal.descricao = descricaoProduto;
+      registroPrincipal.origemDescricao = "revisada no cadastro";
+      if (p.validade) registroPrincipal.validadeOrigem = p.validade;
+    } else {
+      catalogoBase.push({
+        codigo: gtin,
+        descricao: descricaoProduto,
+        validadeOrigem: p.validade || "",
+        origemDescricao: "cadastro da loja"
+      });
+    }
+    if (true) {
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      window.CheckProdutCloud?.saveCatalog(catalogoBase);
+      atualizarContadorBanco();
+      renderizarTabelaBanco();
+    }
+  }
+
+  salvar();
+  salvarPreferenciasCadastro();
+  cancelarEdicao();
+  alert(editId ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
+});
+
+function cancelarEdicao() {
+  document.getElementById("editId").value = "";
+  document.getElementById("formProduto").reset();
+  aplicarPreferenciasCadastro();
+  document.getElementById("formTitle").textContent = "Cadastrar Produto";
+  document.getElementById("btnSalvar").textContent = "Salvar Produto";
+  document.getElementById("btnCancelarEdicao").style.display = "none";
+  document.getElementById("autoSetorBadge").style.display = "none";
+}
+
+function renderizar() {
+  const busca=(document.getElementById("busca")?.value||"").toLowerCase();
+  const funcFiltro=document.getElementById("filtroFuncionario")?.value||"";
+  const setorFiltro=document.getElementById("filtroSetor")?.value||"";
+  const situacaoFiltro=document.getElementById("filtroSituacao")?.value||"";
+  const filtrados=produtos.filter(p=>{
+    const matchBusca=[p.barcode,p.descricao,p.setor,p.funcionario,p.funcionarioRetirada,p.funcionarioNaoEncontrado].join(" ").toLowerCase().includes(busca);
+    const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+    const matchSetor=(!setorFiltro||p.setor===setorFiltro)&&(setorFiltroAtual==="TODOS"||p.setor===setorFiltroAtual);
+    const matchFunc=!funcFiltro||[p.funcionario,p.funcionarioTroca,p.funcionarioRetirada,p.funcionarioNaoEncontrado].includes(funcFiltro);
+    const matchPainel=filtroPainelAtual==="TODOS"||(filtroPainelAtual==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(faixa===filtroPainelAtual&&precisaSolicitarDesconto(p)));
+    const matchSituacao=!situacaoFiltro||(situacaoFiltro==="VENCIDOS"&&dias<0&&!p.retiradoVenda&&!p.naoEncontrado)||(situacaoFiltro==="RETIRAR"&&dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado)||(situacaoFiltro==="RETIRADOS"&&!!p.retiradoVenda)||(situacaoFiltro==="NAO_ENCONTRADO"&&!!p.naoEncontrado)||(situacaoFiltro==="PENDENTE"&&precisaSolicitarDesconto(p));
+    return matchBusca&&matchSetor&&matchFunc&&matchPainel&&matchSituacao;
+  });
+  document.getElementById("total").textContent=produtos.length;
+  document.getElementById("alerta15").textContent=produtos.filter(p=>situacao(p).faixa===15&&precisaSolicitarDesconto(p)).length;
+  document.getElementById("alerta30").textContent=produtos.filter(p=>situacao(p).faixa===30&&precisaSolicitarDesconto(p)).length;
+  document.getElementById("atualizados").textContent=produtos.filter(p=>!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada).length;
+  document.getElementById("alertaRetirada").textContent=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;}).length;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",["RETIRAR",15,30,"ATUALIZADAS"][i]===filtroPainelAtual));
+  const tbody=document.getElementById("lista");tbody.innerHTML="";
+  document.getElementById("vazio").style.display=filtrados.length?"none":"block";
+  filtrados.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999));
+  filtrados.forEach(p=>{
+    const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+    const avisoRetirada=dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado;
+    let statusTag;
+    if(p.naoEncontrado)statusTag='<span class="tag warn">Não localizado · provável venda / local não visível</span>';
+    else if(p.retiradoVenda)statusTag='<span class="tag done">Retirado da área de venda</span>';
+    else if(avisoRetirada)statusTag=`<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias<0?"VENCIDO":dias+" dia(s)"}</span>`;
+    else if(faixa&&descontoSolicitado(p,faixa))statusTag=`<span class="tag done">Desconto de ${faixa}% solicitado</span>`;
+    else statusTag=`<span class="tag ${situacao(p).classe}">${situacao(p).texto}</span>`;
+    const descontoBtn=precisaSolicitarDesconto(p)?`<button type="button" class="primary" onclick="marcarDescontoSolicitado(${p.id},${faixa})">Já solicitei desconto ${faixa}%</button>`:"";
+    const retiradaBtns=avisoRetirada?`<button type="button" class="danger" onclick="marcarRetirada(${p.id})">Já retirei da prateleira</button><button type="button" class="outline" onclick="marcarNaoEncontrado(${p.id})">Não achei</button>`:"";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><span class="code-badge">${p.barcode||""}</span></td><td><strong>${p.descricao||""}</strong><br><small style="color:var(--muted);">${p.peso||""}</small></td>
+      <td><span class="tag setor">${p.setor||"—"}</span></td><td><strong>${p.quantidade??0}</strong></td><td>${formatarData(p.validade)}</td>
+      <td>${dias<0?'<strong style="color:var(--red);">Vencido</strong>':dias+" dias"}</td><td>${statusTag}</td>
+      <td><small>${p.funcionario||""}${p.funcionarioTroca?"<br><b>Desconto: "+p.funcionarioTroca+"</b>":""}${p.funcionarioRetirada?"<br><b>Retirada: "+p.funcionarioRetirada+"</b>":""}${p.funcionarioNaoEncontrado?"<br><b>Conferiu: "+p.funcionarioNaoEncontrado+"</b>":""}</small></td>
+      <td><div class="actions">${descontoBtn}${retiradaBtns}<button type="button" class="danger master-only" onclick="excluir(${p.id})">✕</button></div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function filtrarPainel(tipo, el) {
+  const painel=document.getElementById("painelProdutosResumo");
+  const mesmoTipo=painelResumoTipo===tipo && painelResumoAberto;
+  painelResumoTipo=tipo;
+  painelResumoAberto=!mesmoTipo;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",painelResumoAberto && ["RETIRAR",15,30,"ATUALIZADAS"][i]===painelResumoTipo));
+  atualizarResumoPainel();
+}
+function fecharResumoPainel() {
+  painelResumoAberto=false;
+  const painel=document.getElementById("painelProdutosResumo");
+  if(painel)painel.hidden=true;
+  document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
+}
+function atualizarResumoPainel() {
+  const painel=document.getElementById("painelProdutosResumo");if(!painel)return;
+  if(!painelResumoAberto){painel.hidden=true;return;}
+  const titulos={TODOS:"Todos os produtos cadastrados",15:"Solicitações de desconto · 15%",30:"Solicitações de desconto · 30%",RETIRAR:"Produtos próximos do vencimento · retirar da prateleira",ATUALIZADAS:"Descontos solicitados"};
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda&&!p.naoEncontrado):painelResumoTipo==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(situacao(p).faixa===painelResumoTipo&&precisaSolicitarDesconto(p)));
+  document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
+  document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
+  document.getElementById("barraRetiradaLote").hidden=painelResumoTipo!=="RETIRAR";
+  if(painelResumoTipo!=="RETIRAR")retiradasSelecionadas.clear();
+  const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
+  itens.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999)).forEach(p=>{
+    const item=document.createElement("div");item.className="resumo-produto";
+    if(painelResumoTipo==="RETIRAR"){
+      const linha=document.createElement("label");linha.style.cssText="display:flex;align-items:center;gap:8px;margin:0 0 7px;";
+      const cb=document.createElement("input");cb.type="checkbox";cb.style.width="auto";cb.checked=retiradasSelecionadas.has(String(p.id));
+      cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(String(p.id));else retiradasSelecionadas.delete(String(p.id));atualizarContadorRetiradaLote();});
+      const txt=document.createElement("span");txt.textContent="Selecionar para retirada em lote";linha.append(cb,txt);item.appendChild(linha);
+    }
+    const nome=document.createElement("strong");nome.textContent=p.descricao||"Produto sem descrição";
+    const cod=document.createElement("small");cod.textContent="GTIN: "+(p.barcode||"—");
+    const meta=document.createElement("div");meta.className="resumo-meta";
+    const qtd=document.createElement("span");qtd.textContent="Qtd.: "+(p.quantidade??1);
+    const val=document.createElement("span");val.textContent="Validade: "+formatarData(p.validade);
+    const dias=document.createElement("span");dias.textContent="Dias: "+diasRestantes(p.validade);
+    meta.append(qtd,val,dias);item.append(nome,cod,meta);lista.appendChild(item);
+  });
+  atualizarContadorRetiradaLote();painel.hidden=false;
+}
+function atualizarContadorRetiradaLote(){
+  const el=document.getElementById("contadorRetiradaLote");if(el)el.textContent=retiradasSelecionadas.size+" produto(s) selecionado(s) para retirada em lote.";
+  const todos=document.getElementById("selecionarTodosRetirada");
+  if(todos&&painelResumoTipo==="RETIRAR"){
+    const elegiveis=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;});
+    todos.checked=elegiveis.length>0&&elegiveis.every(p=>retiradasSelecionadas.has(String(p.id)));
+  }
+}
+function selecionarTodosRetirada(checked){
+  produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;})
+    .forEach(p=>{if(checked)retiradasSelecionadas.add(String(p.id));else retiradasSelecionadas.delete(String(p.id));});
+  atualizarResumoPainel();
+}
+async function marcarRetiradaLote(){
+  const ids=[...retiradasSelecionadas];if(!ids.length){alert("Selecione pelo menos um produto.");return;}
+  const nome=document.getElementById("responsavelRetiradaLote").value.trim();if(!nome){alert("Informe o nome do responsável pela retirada.");return;}
+  const agora=new Date().toISOString();
+  produtos.forEach(p=>{if(ids.includes(String(p.id))&&!p.retiradoVenda&&!p.naoEncontrado){p.retiradoVenda=true;p.dataRetiradaVenda=agora;p.funcionarioRetirada=nome;}});
+  retiradasSelecionadas.clear();await salvar();atualizarResumoPainel();
+}
+function exportarResumoPainel() {
+  const itens=obterItensResumoPainel();
+  if(!itens.length){alert("Não há produtos nesta lista para exportar.");return;}
+  if(typeof XLSX==="undefined"){alert("Não foi possível carregar o recurso de planilhas. Atualize a página e tente novamente.");return;}
+  const titulos={TODOS:"Todos os produtos",15:"Etiquetas 15%",30:"Etiquetas 30%",RETIRAR:"Próximos do vencimento",ATUALIZADAS:"Etiquetas atualizadas"};
+  const ordenar=(a,b)=>String(a.setor||"Sem setor").localeCompare(String(b.setor||"Sem setor"),"pt-BR")||
+    String(a.descricao||"").localeCompare(String(b.descricao||""),"pt-BR")||
+    (diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999);
+  const ordenados=[...itens].sort(ordenar);
+  const linhas=[["SETOR","GTIN","PRODUTO","PESO","QUANTIDADE DE ITENS","VALIDADE","DIAS RESTANTES","SITUAÇÃO"]];
+  let setorAtual="", totalUnidades=0;
+  ordenados.forEach(p=>{
+    const setor=String(p.setor||"Sem setor");
+    const qtd=Math.max(0,Number(p.quantidade)||0);
+    totalUnidades+=qtd;
+    linhas.push([setor,p.barcode||"",p.descricao||"",p.peso||"",qtd,formatarData(p.validade),diasRestantes(p.validade),p.naoEncontrado?"Não localizado":p.retiradoVenda?"Retirado da venda":p.desconto30Solicitado?"Desconto 30% solicitado":p.desconto15Solicitado?"Desconto 15% solicitado":situacao(p).texto]);
+  });
+  linhas.push([]);
+  linhas.push(["TOTAL DE PRODUTOS DIFERENTES",ordenados.length]);
+  linhas.push(["TOTAL DE UNIDADES",totalUnidades]);
+  const ws=XLSX.utils.aoa_to_sheet(linhas);
+  ws["!cols"]=[{wch:25},{wch:18},{wch:48},{wch:14},{wch:20},{wch:14},{wch:16},{wch:30}];
+  ws["!autofilter"]={ref:"A1:H"+(ordenados.length+1)};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Lista de separação");
+  const data=new Date().toISOString().slice(0,10);
+  const nome=(titulos[painelResumoTipo]||"Produtos").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_");
+  XLSX.writeFile(wb,"CheckProdut_"+nome+"_"+data+".xlsx");
+}
+async function marcarRetirada(id) {
+  const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
+  const resp=prompt("Nome do funcionário que retirou o produto da área de venda:",p.funcionario||"");if(!resp||!resp.trim())return;
+  p.retiradoVenda=true;p.dataRetiradaVenda=new Date().toISOString();p.funcionarioRetirada=resp.trim();await salvar();
+}
+async function marcarNaoEncontrado(id) {
+  const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
+  const resp=prompt("Nome do funcionário que procurou e não encontrou o produto:",p.funcionario||"");if(!resp||!resp.trim())return;
+  p.naoEncontrado=true;p.dataNaoEncontrado=new Date().toISOString();p.funcionarioNaoEncontrado=resp.trim();
+  await salvar();alert("Produto movido para a pasta 'Não achei · provável venda / local não visível'.");
+}
+async function marcarDescontoSolicitado(id,faixa) {
+  const p=produtos.find(x=>String(x.id)===String(id));if(!p||situacao(p).faixa!==Number(faixa)||!precisaSolicitarDesconto(p))return;
+  const resp=prompt("Nome do funcionário que solicitou o desconto de "+faixa+"%:",p.funcionario||"");if(!resp||!resp.trim())return;
+  if(Number(faixa)===15){p.desconto15Solicitado=true;p.dataDesconto15Solicitado=new Date().toISOString();}
+  if(Number(faixa)===30){p.desconto30Solicitado=true;p.dataDesconto30Solicitado=new Date().toISOString();}
+  p.funcionarioTroca=resp.trim();await salvar();
+}
+function abrirHistoricoVencimentos() {
+  const agora=Date.now(), limite=agora-30*86400000;
+  const itens=produtos.filter(p=>{
+    const retirada=p.dataRetiradaVenda ? new Date(p.dataRetiradaVenda).getTime() : NaN;
+    return p.retiradoVenda && Number.isFinite(retirada) && retirada>=limite && retirada<=agora;
+  }).sort((a,b)=>new Date(b.dataRetiradaVenda)-new Date(a.dataRetiradaVenda));
+  const corpo=document.getElementById("listaHistoricoRetiradas");
+  corpo.innerHTML="";
+  if(!itens.length) corpo.innerHTML='<tr><td colspan="6" class="empty">Nenhuma retirada registrada nos últimos 30 dias.</td></tr>';
+  else itens.forEach(p=>{
+    const tr=document.createElement("tr");
+    [p.descricao||"Produto sem descrição",p.barcode||"—",formatarData(p.validade),p.setor||"—",p.funcionarioRetirada||"—",new Date(p.dataRetiradaVenda).toLocaleString("pt-BR")].forEach(v=>{
+      const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
+    });
+    corpo.appendChild(tr);
+  });
+  document.getElementById("modalHistoricoRetiradas").style.display="flex";
+}
+function fecharHistoricoRetiradas() {
+  document.getElementById("modalHistoricoRetiradas").style.display="none";
+}
+
+function marcarAtualizada(id) {
+  const p = produtos.find(x => x.id === id);
+  if (!p) return;
+  if (!p.etiquetaAtualizada) {
+    const resp = prompt("Nome do funcionário que trocou a etiqueta:", p.funcionario);
+    if (!resp) return;
+    p.etiquetaAtualizada = true;
+    p.funcionarioTroca = resp;
+  } else {
+    p.etiquetaAtualizada = false;
+    p.funcionarioTroca = null;
+  }
+  salvar();
+}
+
+async function excluir(id) {
+  if (!confirm("Deseja excluir este item?")) return;
+  const itemAnterior=produtos.find(p=>p.id===id);
+  if(!itemAnterior)return;
+  try {
+    if(!window.CheckProdutCloud?.isReady()) throw new Error("A nuvem ainda não está conectada. Aguarde antes de excluir.");
+    await window.CheckProdutCloud.deleteProduct(id);
+    produtos=produtos.filter(p=>p.id!==id);
+    localStorage.setItem(CHAVE_PRODUTOS,JSON.stringify(produtos));
+    renderizar();
+    atualizarListaFuncionarios();
+  } catch(err) {
+    alert("Não foi possível excluir/sincronizar o produto: "+(err?.message||err));
+  }
+}
+
+function filtrarSetor(setor, el) {
+  setorFiltroAtual = setor;
+  document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  renderizar();
+}
+
+function atualizarListaFuncionarios() {
+  const select = document.getElementById("filtroFuncionario");
+  const funcSet = new Set();
+  produtos.forEach(p => { if(p.funcionario) funcSet.add(p.funcionario); });
+  select.innerHTML = '<option value="">Todos os Funcionários</option>';
+  funcSet.forEach(f => {
+    const opt = document.createElement("option"); opt.value = f; opt.textContent = f; select.appendChild(opt);
+  });
+}
+
+// CÂMERA OCR
+async function abrirModalOCR() {
+  const modal = document.getElementById("modalOCR");
+  const video = document.getElementById("videoOCR");
+  const status = document.getElementById("ocrStatus");
+  if (!navigator.mediaDevices?.getUserMedia) {
+    status.textContent = "A câmera não está disponível. Abra o CheckProdut pelo endereço HTTPS.";
+    modal.style.display = "flex";
+    return;
+  }
+  try {
+    status.textContent = "Abrindo câmera...";
+    modal.style.display = "flex";
+    if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
+    streamVideoOCR = await navigator.mediaDevices.getUserMedia({
+      audio: false, video: { facingMode: { ideal: "environment" } }
+    });
+    video.srcObject = streamVideoOCR;
+    await video.play();
+    status.textContent = "Câmera pronta. Enquadre a validade e toque em Capturar Data.";
+  } catch (erro) {
+    status.textContent = "Não foi possível abrir a câmera. Verifique a permissão nas configurações do navegador.";
+    console.error("Erro na câmera:", erro);
+  }
+}
+
+function fecharModalOCR() {
+  if (streamVideoOCR) streamVideoOCR.getTracks().forEach(t => t.stop());
+  streamVideoOCR = null;
+  document.getElementById("videoOCR").srcObject = null;
+  document.getElementById("modalOCR").style.display = "none";
+}
+
+async function capturarEProcessarOCR() {
+  if (processandoOCR) return;
+  const video = document.getElementById("videoOCR");
+  const status = document.getElementById("ocrStatus");
+  if (!video.videoWidth || !video.videoHeight) {
+    status.textContent = "A câmera ainda está iniciando. Aguarde um instante.";
+    return;
+  }
+  processandoOCR = true;
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  status.textContent = "Lendo a validade da imagem...";
+  try {
+    const resultado = await Tesseract.recognize(canvas, "por+eng");
+    const dataExt = converterTextoParaData(resultado.data.text || "");
+    if (dataExt) {
+      preencherValidade(dataExt);
+      status.textContent = "Validade identificada: " + formatarData(dataExt);
+      fecharModalOCR();
+    } else {
+      status.textContent = "Não consegui identificar a data. Vou abrir o calendário para você selecionar.";
+      fecharModalOCR();
+      abrirCalendarioValidade();
+    }
+  } catch (erro) {
+    console.error("Erro no reconhecimento da validade:", erro);
+    status.textContent = "Não foi possível ler a imagem. Selecione a data no calendário.";
+    fecharModalOCR();
+    abrirCalendarioValidade();
+  } finally {
+    processandoOCR = false;
+  }
+}
+
+// MICROFONE DE VOZ
+let reconhecimentoVozValidade = null;
+let tentativaVozValidade = 0;
+
+function preencherValidade(dataISO) {
+  const campo = document.getElementById("validade");
+  campo.value = dataISO;
+  campo.dispatchEvent(new Event("input", { bubbles: true }));
+  campo.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function abrirCalendarioValidade() {
+  const campo = document.getElementById("validade");
+  campo.focus();
+  if (typeof campo.showPicker === "function") {
+    try { campo.showPicker(); } catch (e) { campo.click(); }
+  } else {
+    campo.click();
+  }
+}
+
+function iniciarLeituraVoz() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("O reconhecimento de voz não está disponível neste navegador. Selecione a validade no calendário.");
+    return;
+  }
+  const minhaTentativa = ++tentativaVozValidade;
+  if (reconhecimentoVozValidade) {
+    try { reconhecimentoVozValidade.abort(); } catch (e) {}
+    reconhecimentoVozValidade = null;
+  }
+  const rec = new SpeechRecognition();
+  reconhecimentoVozValidade = rec;
+  rec.lang = "pt-BR";
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.maxAlternatives = 8;
+  let finalizado = false;
+  const aindaAtual = () => minhaTentativa === tentativaVozValidade;
+  const finalizar = () => {
+    if (finalizado) return;
+    finalizado = true;
+    if (aindaAtual() && reconhecimentoVozValidade === rec) reconhecimentoVozValidade = null;
+  };
+  rec.onresult = function(e) {
+    if (!aindaAtual()) return;
+    const alternativas = Array.from(e.results || []).flatMap(r => Array.from(r || []).map(a => a.transcript || ""));
+    for (const fala of alternativas) {
+      const data = converterTextoParaData(fala);
+      if (data) {
+        finalizar();
+        preencherValidade(data);
+        return;
+      }
+    }
+    finalizar();
+    alert("Não consegui entender a data. Toque no microfone e fale novamente, por exemplo: doze do quatro de dois mil e vinte e cinco.");
+  };
+  rec.onerror = function(e) {
+    if (!aindaAtual()) return;
+    console.warn("Reconhecimento de voz:", e.error);
+    finalizar();
+    if (e.error !== "aborted" && e.error !== "no-speech")
+      alert("Não foi possível reconhecer a fala. Toque no microfone e tente novamente.");
+  };
+  rec.onnomatch = function() {
+    if (!aindaAtual()) return;
+    finalizar();
+    alert("Não consegui entender a data. Toque no microfone e fale novamente.");
+  };
+  rec.onend = function() {
+    if (!aindaAtual() || finalizado) return;
+    finalizar();
+  };
+  try { rec.start(); }
+  catch (erro) {
+    console.error("Não foi possível iniciar o microfone:", erro);
+    finalizar();
+    alert("Não foi possível iniciar o microfone. Tente novamente.");
+  }
+}
+
+function converterTextoParaData(texto) {
+  if (!texto) return null;
+  const meses = {
+    janeiro:"01", jan:"01", fevereiro:"02", fev:"02", marco:"03", mar:"03",
+    abril:"04", abr:"04", maio:"05", mai:"05", junho:"06", jun:"06",
+    julho:"07", jul:"07", agosto:"08", ago:"08", setembro:"09", set:"09", sep:"09",
+    outubro:"10", out:"10", outubro:"10", nov:"11", novembro:"11",
+    dezembro:"12", dez:"12"
+  };
+  const normalizar = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const t = normalizar(String(texto)).replace(/[,_]/g, " ").replace(/\s+/g, " ").trim();
+  const anoCompleto = a => a.length === 2 ? "20" + a : a;
+  const montar = (ano, mes, dia="01") => {
+    const y=Number(anoCompleto(String(ano))), m=Number(mes), d=Number(dia);
+    if (y<2000 || y>2099 || m<1 || m>12 || d<1 || d>31) return null;
+    const dt=new Date(Date.UTC(y,m-1,d));
+    if(dt.getUTCFullYear()!==y || dt.getUTCMonth()!==m-1 || dt.getUTCDate()!==d) return null;
+    return String(y).padStart(4,"0")+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+  };
+
+  // Formatos compactos de validade. Exemplo solicitado: JUN27 = 01/07/2027.
+  const compacto = t.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)[\s./-]*(\d{2,4})\b/i);
+  if (compacto) {
+    const sigla=compacto[1].toLowerCase();
+    const mes= sigla==="jun" ? "07" : meses[sigla];
+    return montar(compacto[2],mes,"01");
+  }
+
+  // Mês/ano ou mês-ano, como ABR/28.
+  const mesAno = t.match(/\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)[\s./-]+(20\d{2}|\d{2})\b/i);
+  if (mesAno) return montar(mesAno[2],meses[mesAno[1]],"01");
+
+  // Data falada: "12 do 4 de 2025" ou "12 de 4 de 2025".
+  const falada=t.match(/\b(\d{1,2})\s+(?:do|de)\s+(\d{1,2})\s+(?:de\s+)?(20\d{2}|\d{2})\b/);
+  if(falada) return montar(falada[3],falada[2],falada[1]);
+
+  // Data numérica: DD/MM/AAAA, DD-MM-AA ou AAAA-MM-DD.
+  let m=t.match(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b/);
+  if(m) return montar(m[3],m[2],m[1]);
+  m=t.match(/\b(20\d{2})[/.\-](\d{1,2})[/.\-](\d{1,2})\b/);
+  if(m) return montar(m[1],m[2],m[3]);
+
+  // Datas faladas ou escritas por extenso, com ou sem dia.
+  for (const [nome,numero] of Object.entries(meses).sort((a,b)=>b[0].length-a[0].length)) {
+    const re=new RegExp("\\b"+nome+"\\b","i");
+    if(re.test(t)) {
+      const antes=t.slice(0,t.search(re));
+      const depois=t.slice(t.search(re)+nome.length);
+      const diaMatch=antes.match(/(?:dia\\s*)?(\\d{1,2})\\s*(?:de)?\\s*$/);
+      const anoMatch=depois.match(/(?:de\\s*)?(20\\d{2}|\\d{2})\\b/);
+      if(anoMatch) return montar(anoMatch[1],numero,diaMatch?diaMatch[1]:"01");
+    }
+  }
+
+  // Embalagens podem trazer somente mês e ano em texto abreviado separado.
+  const letras=t.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)\b[^0-9]{0,4}(20\d{2}|\d{2})\b/);
+  if(letras) return montar(letras[2],meses[letras[1]],"01");
+  return null;
+}
+
+// CÂMERA SCANNER
+async function abrirScannerBarcode() {
+  const modal=document.getElementById("modalScanner");
+  const reader=document.getElementById("reader");
+  modal.style.display="flex";
+  reader.innerHTML='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;"><label for="cameraBarcodeSelect" style="margin:0;">Câmera:</label><select id="cameraBarcodeSelect" style="flex:1;min-width:180px;"></select><button type="button" class="secondary" id="trocarCameraBarcode">Trocar câmera</button></div><div id="barcodeCameraView"></div><p id="barcodeCameraStatus" style="font-size:12px;color:var(--muted);"></p>';
+  const status=document.getElementById("barcodeCameraStatus");
+  const seletor=document.getElementById("cameraBarcodeSelect");
+  try {
+    if (!navigator.mediaDevices?.getUserMedia || typeof Html5Qrcode==="undefined") {
+      status.textContent="Leitor de câmera indisponível neste navegador.";
+      return;
+    }
+    camerasBarcode=await Html5Qrcode.getCameras();
+    if(!camerasBarcode.length) {
+      status.textContent="Nenhuma câmera foi encontrada no dispositivo.";
+      return;
+    }
+    const traseiras=camerasBarcode.filter(x=>/back|rear|environment|traseir|ultra|wide|tele/i.test(x.label||""));
+    const ordenadas=[...traseiras,...camerasBarcode.filter(x=>!traseiras.some(t=>t.id===x.id))];
+    camerasBarcode=ordenadas;
+    seletor.innerHTML="";
+    camerasBarcode.forEach((cam,i)=>{
+      const op=document.createElement("option");
+      op.value=cam.id;
+      op.textContent=cam.label || ("Câmera "+(i+1));
+      seletor.appendChild(op);
+    });
+    const preferida=traseiras[0] || camerasBarcode[0];
+    seletor.value=preferida.id;
+    html5QrcodeScanner=new Html5Qrcode("barcodeCameraView",{verbose:false});
+    await iniciarCameraBarcode(preferida.id);
+    seletor.addEventListener("change",()=>iniciarCameraBarcode(seletor.value));
+    document.getElementById("trocarCameraBarcode").addEventListener("click",()=>{
+      const atual=seletor.selectedIndex;
+      seletor.selectedIndex=(atual+1)%seletor.options.length;
+      iniciarCameraBarcode(seletor.value);
+    });
+  } catch(erro) {
+    console.error("Erro ao iniciar leitor:",erro);
+    status.textContent="Não foi possível acessar as câmeras. Confira a permissão do navegador.";
+  }
+}
+
+async function iniciarCameraBarcode(cameraId) {
+  const status=document.getElementById("barcodeCameraStatus");
+  if(!html5QrcodeScanner) return;
+  try {
+    if(html5QrcodeScanner.isScanning) await html5QrcodeScanner.stop();
+    cameraBarcodeAtual=cameraId;
+    status.textContent="Iniciando câmera selecionada...";
+    await html5QrcodeScanner.start(
+      cameraId,
+      {fps:12,qrbox:{width:280,height:150},aspectRatio:1.777},
+      txt=>{
+        document.getElementById("barcode").value=txt;
+        buscarProdutoPorCodigo(txt);
+        fecharScannerBarcode();
+      },
+      ()=>{}
+    );
+    status.textContent="Aponte a câmera para o código de barras.";
+  } catch(erro) {
+    console.error("Falha ao trocar câmera:",erro);
+    status.textContent="Não foi possível iniciar esta câmera. Selecione outra na lista.";
+  }
+}
+
+async function fecharScannerBarcode() {
+  if(html5QrcodeScanner) {
+    try { if(html5QrcodeScanner.isScanning) await html5QrcodeScanner.stop(); } catch(e) {}
+    try { await html5QrcodeScanner.clear(); } catch(e) {}
+  }
+  html5QrcodeScanner=null;
+  cameraBarcodeAtual=null;
+  document.getElementById("modalScanner").style.display="none";
+  document.getElementById("reader").innerHTML="";
+}
+
+function exportarCSV() {
+  if (!produtos.length) { alert("Sem dados para exportar."); return; }
+  let csv = "\uFEFFGTIN;Produto;Peso;Setor;Qtd;Validade;Dias;Situação;Responsável\n";
+  produtos.forEach(p => {
+    csv += `"${p.barcode}";"${p.descricao}";"${p.peso}";"${p.setor}";${p.quantidade};"${formatarData(p.validade)}";${diasRestantes(p.validade)};"${situacao(p).texto}";"${p.funcionario}"\n`;
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Validades_Petcamp_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function carregarDadosExemplo() {
+  const d = new Date(Date.now() + 60*86400000).toISOString().slice(0,10);
+  produtos.push({ id: Date.now(), barcode: "7898348033599", descricao: "ALIMENTO JABUTI MIX ZOOTEKNA 60GR", peso: "60g", setor: "Outros", quantidade: 1, validade: d, especie: "Geral", funcionario: "Jeisa", etiquetaAtualizada: false });
+  salvar();
+}
+
+atualizarContadorBanco();
+renderizar();
+atualizarListaFuncionarios();
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+import { initializeFirestore, collection, doc, getDocs, writeBatch, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAXqTaRsAZ3FB3-GgiFMCiASsX2dntcL-w",
+  authDomain: "checkprodut.firebaseapp.com",
+  projectId: "checkprodut",
+  storageBucket: "checkprodut.firebasestorage.app",
+  messagingSenderId: "920007623470",
+  appId: "1:920007623470:web:6e154dade10291272370bf"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+// Mesmo transporte estável usado no ScanCheck: long polling ajuda em redes e navegadores que bloqueiam WebChannel.
+const firestoreDb = initializeFirestore(app, { experimentalForceLongPolling: true });
+// Alias de compatibilidade para qualquer rotina legada que ainda consulte "db".
+const db = firestoreDb;
+window.db = firestoreDb;
+const allowed = {
+  "correiajeisaa@gmail.com": "MASTER",
+  "petcamp.novaodessa@gmail.com": "STORE"
+};
+let role = null, stopProducts = null, stopCatalog = null, ready = false;
+const gate = document.getElementById("authGate");
+const message = document.getElementById("authMessage");
+const status = document.getElementById("cloudStatus");
+const userLabel = document.getElementById("cloudUser");
+function setMessage(t, bad=true) { message.textContent=t; message.style.color=bad?"#c94b4b":"#267044"; }
+function applyRole() {
+  document.querySelectorAll(".master-only").forEach(el => el.style.display = role==="MASTER" ? "" : "none");
+  userLabel.textContent = auth.currentUser ? auth.currentUser.email+" · "+role : "";
+}
+function idCatalogo(item) {
+  const base = [String(item.codigo ?? "").trim(), String(item.validadeOrigem ?? "").trim(), String(item.descricao ?? "").trim().toLowerCase()].join("|");
+  let hash = 2166136261;
+  for (let i=0; i<base.length; i++) { hash ^= base.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+  return "cat_" + (hash >>> 0).toString(36) + "_" + String(item.codigo ?? "").replace(/\\D/g,"").slice(-8);
+}
+// Expõe o gerador de IDs para as rotinas do script clássico de importação.
+window.idCatalogo = idCatalogo;
+async function seedCollection(name, localItems, remoteDocs) {
+  const remote = new Map(remoteDocs.map(d => [String(d.id), d]));
+  const local = Array.isArray(localItems) ? localItems : [];
+  // Produtos removidos na nuvem nunca devem reaparecer por causa de um cache antigo.
+  // A migração local de produtos só é permitida quando a coleção remota está vazia.
+  // Produtos locais só são migrados quando a coleção remota está vazia.
+  // O catálogo é reconciliado por ID, nunca pela quantidade de registros.
+  const podeMigrarLocal = name === "checkprodut_catalogo" || remote.size === 0;
+  if (podeMigrarLocal) {
+    for (const item of local) {
+      const key = String(item.id || (name === "checkprodut_catalogo" ? idCatalogo(item) : ""));
+      if (!key || remote.has(key)) continue;
+      remote.set(key, { ...item, id: key });
+    }
+  }
+  const idsRemotos = new Set(remoteDocs.map(d => String(d.id)));
+  const pendentes = [...remote.entries()].filter(([key]) => !idsRemotos.has(key));
+  for (let inicio=0; inicio<pendentes.length; inicio+=400) {
+    const batch = writeBatch(firestoreDb);
+    pendentes.slice(inicio,inicio+400).forEach(([key,item]) => batch.set(doc(collection(firestoreDb,name),key),item));
+    await batch.commit();
+  }
+  return [...remote.values()];
+}
+async function startCloud(user) {
+  const productsRef=collection(firestoreDb,"checkprodut_produtos");
+  const catalogRef=collection(firestoreDb,"checkprodut_catalogo");
+  status.textContent="Conectando ao Firestore...";
+  const [pSnap,cSnap]=await Promise.all([getDocs(productsRef),getDocs(catalogRef)]);
+  const localP=JSON.parse(localStorage.getItem("checkprodut_produtos_v8")||"[]");
+  const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
+  const cloudP=await seedCollection("checkprodut_produtos",localP,pSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
+  let cloudC=cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+  // O MASTER reconcilia os registros locais ausentes na nuvem por identificador,
+  // não pela contagem. Assim, itens do computador não são ignorados quando a
+  // nuvem e o cache local possuem a mesma quantidade, mas registros diferentes.
+  if(role==="MASTER" && localC.length) {
+    const idsNuvem = new Set(cloudC.map(item => String(item.id || idCatalogo(item))));
+    const locaisAusentes = localC.filter(item => !idsNuvem.has(String(item.id || idCatalogo(item))));
+    if(locaisAusentes.length) {
+      status.textContent="Sincronizando "+locaisAusentes.length+" itens locais que ainda não estão na nuvem...";
+      cloudC=await seedCollection("checkprodut_catalogo",localC,cloudC);
+    }
+  }
+  localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
+  window.aplicarDadosDaNuvem(cloudP,cloudC);
+  ready=true;
+  stopProducts=onSnapshot(productsRef,snap=>{
+    const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+    window.aplicarDadosDaNuvem(rows,null);
+  },err=>{status.textContent="Erro ao sincronizar produtos";console.error(err);});
+  stopCatalog=onSnapshot(catalogRef,snap=>{
+    const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+    window.aplicarDadosDaNuvem(null,rows);
+    status.textContent="Nuvem conectada · "+rows.length+" itens no catálogo · sincronização ativa";
+  },err=>{
+    status.textContent="Erro ao sincronizar catálogo ("+(err?.code||"sem código")+")";
+    console.error("Falha no listener do catálogo CheckProdut:",err);
+  });
+  status.textContent="Nuvem conectada · "+cloudC.length+" itens no catálogo · sincronização ativa";
+}
+window.CheckProdutCloud = {
+  saveProducts: async rows => {
+    if(!ready) throw new Error("Nuvem ainda não conectada; nenhum produto foi enviado.");
+    // Firestore limita cada WriteBatch a 500 operações.
+    for(let inicio=0;inicio<rows.length;inicio+=400) {
+      const batch=writeBatch(firestoreDb);
+      rows.slice(inicio,inicio+400).forEach(item=>batch.set(doc(firestoreDb,"checkprodut_produtos",String(item.id)),item));
+      await batch.commit();
+    }
+  },
+  isReady: () => ready,
+  saveCatalog: async rows => {
+    if(!ready) throw new Error("Nuvem ainda não conectada; nenhum item do banco foi enviado.");
+    // Firestore permite no máximo 500 operações por lote. Divide catálogos
+    // grandes em blocos menores para que a atualização não falhe.
+    const tamanhoLote = 400;
+    for (let inicio = 0; inicio < rows.length; inicio += tamanhoLote) {
+      const batch = writeBatch(firestoreDb);
+      rows.slice(inicio, inicio + tamanhoLote).forEach(item => {
+        // ID determinístico: a posição na planilha/lote não pode criar outro documento
+        // quando a ordem dos registros mudar entre computador e celular.
+        const chave = String(item.id || idCatalogo(item));
+        batch.set(doc(firestoreDb, "checkprodut_catalogo", chave), { ...item, id: chave });
+      });
+      await batch.commit();
+    }
+  },
+  deleteProduct: async id => {
+    if(!ready) throw new Error("Nuvem ainda não conectada; a exclusão não foi enviada.");
+    await deleteDoc(doc(firestoreDb,"checkprodut_produtos",String(id)));
+  },
+  clearCatalog: async () => {
+    if(!ready || role!=="MASTER") throw new Error("Somente o acesso MASTER pode apagar o catálogo.");
+    const ref=collection(firestoreDb,"checkprodut_catalogo");
+    let removidos=0;
+    while(true) {
+      const snap=await getDocs(ref);
+      if(snap.empty) break;
+      for(let inicio=0;inicio<snap.docs.length;inicio+=400) {
+        const batch=writeBatch(firestoreDb);
+        snap.docs.slice(inicio,inicio+400).forEach(d=>batch.delete(d.ref));
+        await batch.commit();
+        removidos+=Math.min(400,snap.docs.length-inicio);
+      }
+    }
+    const local=[];
+    localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(local));
+    window.aplicarDadosDaNuvem?.(null,local);
+    return removidos;
+  },
+  logout: async () => { if(stopProducts)stopProducts(); if(stopCatalog)stopCatalog(); ready=false; await signOut(auth); }
+};
+document.getElementById("googleSignIn").addEventListener("click",async()=>{
+  const btn=document.getElementById("googleSignIn");
+  btn.disabled=true; btn.textContent="Abrindo Google...";
+  try {
+    const provider=new GoogleAuthProvider();
+    provider.setCustomParameters({prompt:"select_account"});
+    await signInWithPopup(auth,provider);
+  } catch(err) {
+    console.error("Login Google CheckProdut:",err);
+    setMessage(err.code==="auth/popup-closed-by-user"?"A janela de login foi fechada. Tente novamente.":err.message);
+  } finally { btn.disabled=false; btn.textContent="Continuar com Google"; }
+});
+document.getElementById("authForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const btn=document.getElementById("authSubmit"); btn.disabled=true; btn.textContent="Entrando...";
+  try {
+    await signInWithEmailAndPassword(auth,document.getElementById("authEmail").value.trim().toLowerCase(),document.getElementById("authPassword").value);
+  } catch(err) {
+    setMessage(err.code==="auth/invalid-credential"?"E-mail ou senha incorretos.":err.message);
+  } finally { btn.disabled=false; btn.textContent="Entrar"; }
+});
+onAuthStateChanged(auth,async user=>{
+  if(stopProducts)stopProducts(); if(stopCatalog)stopCatalog(); ready=false;
+  if(!user) { role=null; gate.style.display="flex"; status.textContent="Aguardando acesso"; userLabel.textContent=""; return; }
+  const email=(user.email||"").toLowerCase();
+  if(!allowed[email]) { await signOut(auth); setMessage("Este e-mail não está autorizado para acessar o CheckProdut."); return; }
+  role=allowed[email]; applyRole(); gate.style.display="none"; status.textContent="Conectando à nuvem...";
+  try { await startCloud(user); }
+  catch(err) { console.error("Firebase CheckProdut:",err); status.textContent="Falha na conexão com a nuvem"; gate.style.display="flex"; const codigo=err?.code||"sem-codigo"; const detalhe=err?.message||String(err); setMessage("Falha ao conectar ao banco ("+codigo+"): "+detalhe); }
+});
+</script>
+
+</body>
+</html>
