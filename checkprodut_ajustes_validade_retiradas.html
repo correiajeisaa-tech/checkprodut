@@ -1377,7 +1377,7 @@ function atualizarResumoPainel() {
   if(!painel)return;
   if(!painelResumoAberto){painel.hidden=true;return;}
   const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",RETIRAR:"Produtos perto de vencer · retirar da prateleira",ATUALIZADAS:"Etiquetas conferidas / atualizadas"};
-  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)>=0&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
   document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
   const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
