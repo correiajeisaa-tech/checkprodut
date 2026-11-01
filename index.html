@@ -1390,10 +1390,17 @@ function atualizarResumoPainel() {
   itens.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999)).forEach(p=>{
     const item=document.createElement("div");item.className="resumo-produto";
     if(painelResumoTipo==="RETIRAR"){
+      item.style.cursor="pointer";
+      item.style.transition="border-color .12s,background .12s";
+      const atualizarVisualSelecao=()=>{item.style.borderColor=retiradasSelecionadas.has(p)?"var(--cyan)":"var(--border)";item.style.background=retiradasSelecionadas.has(p)?"#eefaff":"#f8fbfd";};
       const linha=document.createElement("label");linha.style.cssText="display:flex;align-items:center;gap:8px;margin:0 0 7px;";
       const cb=document.createElement("input");cb.type="checkbox";cb.style.width="auto";cb.checked=retiradasSelecionadas.has(p);
-      cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(p);else retiradasSelecionadas.delete(p);atualizarContadorRetiradaLote();});
+      cb.addEventListener("click",e=>e.stopPropagation());
+      cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(p);else retiradasSelecionadas.delete(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
+      item.addEventListener("mouseenter",()=>{retiradasSelecionadas.add(p);cb.checked=true;atualizarVisualSelecao();atualizarContadorRetiradaLote();});
+      item.addEventListener("click",e=>{if(e.target.closest("input,label"))return;if(retiradasSelecionadas.has(p))retiradasSelecionadas.delete(p);else retiradasSelecionadas.add(p);cb.checked=retiradasSelecionadas.has(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
       const txt=document.createElement("span");txt.textContent="Selecionar para retirada em lote";linha.append(cb,txt);item.appendChild(linha);
+      atualizarVisualSelecao();
     }
     const nome=document.createElement("strong");nome.textContent=p.descricao||"Produto sem descrição";
     const cod=document.createElement("small");cod.textContent="GTIN: "+(p.barcode||"—");
