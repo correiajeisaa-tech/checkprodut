@@ -575,12 +575,12 @@ async function gravarImportacao(dados, origem, event) {
     const key=chaveCatalogo(item);
     if(existentes.has(key)){repetidos++;continue;}
     const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
-    if(pendente){pendente.descricao=item.descricao;pendente.id=idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
-    item.id=idCatalogo(item);
+    if(pendente){pendente.descricao=item.descricao;pendente.id=window.idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
+    item.id=window.idCatalogo(item);
     catalogoBase.push(item);existentes.add(key);adicionados++;
   }
   // Normaliza também registros antigos sem ID para que a sincronização seja estável.
-  catalogoBase.forEach(item=>{if(!item.id)item.id=idCatalogo(item);});
+  catalogoBase.forEach(item=>{if(!item.id)item.id=window.idCatalogo(item);});
   let acompanhamentosNovos=0;
   const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
   for(const item of novosAcompanhamentos){
@@ -1808,6 +1808,8 @@ function idCatalogo(item) {
   for (let i=0; i<base.length; i++) { hash ^= base.charCodeAt(i); hash = Math.imul(hash, 16777619); }
   return "cat_" + (hash >>> 0).toString(36) + "_" + String(item.codigo ?? "").replace(/\\D/g,"").slice(-8);
 }
+// Expõe o gerador de IDs para as rotinas do script clássico de importação.
+window.idCatalogo = idCatalogo;
 async function seedCollection(name, localItems, remoteDocs) {
   const remote = new Map(remoteDocs.map(d => [String(d.id), d]));
   const local = Array.isArray(localItems) ? localItems : [];
