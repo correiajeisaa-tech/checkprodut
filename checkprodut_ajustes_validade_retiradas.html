@@ -634,7 +634,7 @@ async function carregarRelatorioLoja(event) {
       return;
     }
     if(!["xlsx","xls","csv"].includes(ext))throw new Error("Formato não suportado. Use Excel, CSV ou PDF.");
-    const workbook=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array",cellDates:true});
+    const workbook=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array",cellDates:true,cellNF:true});
     const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
     const ehGtin=h=>/gtin|ean/.test(h);
     const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
@@ -656,7 +656,15 @@ async function carregarRelatorioLoja(event) {
         const row=rows[i]||[];
         const gtin=String(row[colGtin]??"").trim().replace(/\.0$/,"").replace(/\D/g,"");
         if(!gtin||gtin.length<8)continue;
-        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+        let validadeImportada=row[colVal];
+        // Se a célula Excel estiver formatada apenas como mês/ano, considerar o último dia do mês.
+        const enderecoValidade=XLSX.utils.encode_cell({r:i,c:colVal});
+        const celulaValidade=workbook.Sheets[nomeAba][enderecoValidade];
+        if(validadeImportada instanceof Date && celulaValidade?.z) {
+          const formato=String(celulaValidade.z).toLowerCase().replace(/"[^"]*"/g,"");
+          if(/[my]/.test(formato) && !/d/.test(formato)) validadeImportada=new Date(validadeImportada.getFullYear(),validadeImportada.getMonth()+1,0);
+        }
+        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:validadeImportada});
       }
     }
     await gravarImportacao(dados,"Excel/CSV",event);
