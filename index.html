@@ -399,6 +399,7 @@ const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v8";
 let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
 let setorFiltroAtual = "TODOS";
+let filtroPainelAtual = "TODOS";
 let html5QrcodeScanner = null;
 let streamVideoOCR = null;
 let camerasBarcode = [];
@@ -1162,18 +1163,25 @@ function cancelarEdicao() {
 function renderizar() {
   const busca = (document.getElementById("busca")?.value || "").toLowerCase();
   const funcFiltro = document.getElementById("filtroFuncionario")?.value || "";
+  const setorFiltro = document.getElementById("filtroSetor")?.value || "";
+  const situacaoFiltro = document.getElementById("filtroSituacao")?.value || "";
 
   const filtrados = produtos.filter(p => {
     const matchBusca = [p.barcode, p.descricao, p.setor, p.funcionario].join(" ").toLowerCase().includes(busca);
-    const matchSetor = (setorFiltroAtual === "TODOS" || p.setor === setorFiltroAtual);
-    const matchFunc = (!funcFiltro || p.funcionario === funcFiltro || p.funcionarioTroca === funcFiltro);
-    return matchBusca && matchSetor && matchFunc;
+    const dias = diasRestantes(p.validade);
+    const matchSetor = (!setorFiltro || p.setor === setorFiltro) && (setorFiltroAtual === "TODOS" || p.setor === setorFiltroAtual);
+    const matchFunc = (!funcFiltro || p.funcionario === funcFiltro || p.funcionarioTroca === funcFiltro || p.funcionarioRetirada === funcFiltro);
+    const faixa = situacao(p).faixa;
+    const matchPainel = filtroPainelAtual === "TODOS" || (filtroPainelAtual === "ATUALIZADAS" ? !!p.etiquetaAtualizada : faixa === filtroPainelAtual && !p.etiquetaAtualizada);
+    const matchSituacao = !situacaoFiltro || (situacaoFiltro === "VENCIDOS" && dias < 0) || (situacaoFiltro === "RETIRAR" && dias !== null && dias >= 0 && dias <= 10 && !p.retiradoVenda) || (situacaoFiltro === "RETIRADOS" && !!p.retiradoVenda) || (situacaoFiltro === "PENDENTE" && faixa > 0 && !p.etiquetaAtualizada);
+    return matchBusca && matchSetor && matchFunc && matchPainel && matchSituacao;
   });
 
   document.getElementById("total").textContent = produtos.length;
   document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
   document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
   document.getElementById("atualizados").textContent = produtos.filter(p => p.etiquetaAtualizada).length;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["TODOS",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
 
   const tbody = document.getElementById("lista");
   tbody.innerHTML = "";
@@ -1184,7 +1192,8 @@ function renderizar() {
   filtrados.forEach(p => {
     const dias = diasRestantes(p.validade);
     const s = situacao(p);
-    const statusTag = p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
+    const avisoRetirada = dias !== null && dias >= 0 && dias <= 10 && !p.retiradoVenda;
+    const statusTag = dias < 0 ? `<span class="tag urgent">VENCIDO · RETIRAR</span>` : p.retiradoVenda ? `<span class="tag done">Retirado da área de venda</span>` : avisoRetirada ? `<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias} dia(s)</span>` : p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -1198,13 +1207,36 @@ function renderizar() {
       <td><small>${p.funcionario}${p.funcionarioTroca ? `<br><b style="color:var(--green);">Troca: ${p.funcionarioTroca}</b>` : ''}</small></td>
       <td>
         <div class="actions">
-          <button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">${p.etiquetaAtualizada ? "Desfazer" : "Troca"}</button>
+          ${s.faixa > 0 && !p.etiquetaAtualizada && dias >= 0 ? `<button type="button" class="primary" onclick="marcarAtualizada(${p.id})">Trocar etiqueta ${s.faixa}%</button>` : p.etiquetaAtualizada ? `<button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">Desfazer troca</button>` : ""}
+          ${dias !== null && dias >= 0 && dias <= 10 ? `<button type="button" class="danger" onclick="marcarRetirada(${p.id})">${p.retiradoVenda ? "Retirada confirmada" : "Retirado da área de venda"}</button>` : ""}
           <button type="button" class="danger master-only" onclick="excluir(${p.id})">✕</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+function filtrarPainel(tipo, el) {
+  filtroPainelAtual = tipo;
+  document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
+  if(el) el.classList.add("active-filter");
+  renderizar();
+  document.getElementById("lista").closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function marcarRetirada(id) {
+  const p=produtos.find(x=>x.id===id); if(!p)return;
+  if(p.retiradoVenda){alert("A retirada já foi registrada. Para corrigir, edite o produto.");return;}
+  const resp=prompt("Nome do funcionário que retirou o produto da área de venda:",p.funcionario||"");
+  if(!resp||!resp.trim())return;
+  p.retiradoVenda=true; p.dataRetiradaVenda=new Date().toISOString(); p.funcionarioRetirada=resp.trim(); salvar();
+}
+function abrirHistoricoVencimentos() {
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const limite=new Date(hoje); limite.setDate(limite.getDate()-30);
+  const itens=produtos.filter(p=>{const d=interpretarDataValidade(p.validade);return d && d<hoje && d>=limite;});
+  const linhas=itens.map(p=>p.descricao+" | GTIN "+p.barcode+" | Validade "+formatarData(p.validade)+" | "+p.setor+" | "+(p.retiradoVenda?"Retirado da venda":"Retirada não confirmada")).join("\n");
+  alert("HISTÓRICO — PRODUTOS QUE VENCERAM NOS ÚLTIMOS 30 DIAS\n\n"+(linhas||"Nenhum produto venceu nesse período."));
 }
 
 function marcarAtualizada(id) {
