@@ -1427,6 +1427,9 @@ async function capturarEProcessarOCR() {
 }
 
 // MICROFONE DE VOZ
+let reconhecimentoVozValidade = null;
+let tentativaVozValidade = 0;
+
 function preencherValidade(dataISO) {
   const campo = document.getElementById("validade");
   campo.value = dataISO;
@@ -1448,46 +1451,61 @@ function iniciarLeituraVoz() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     alert("O reconhecimento de voz não está disponível neste navegador. Selecione a validade no calendário.");
-    abrirCalendarioValidade();
     return;
   }
+  const minhaTentativa = ++tentativaVozValidade;
+  if (reconhecimentoVozValidade) {
+    try { reconhecimentoVozValidade.abort(); } catch (e) {}
+    reconhecimentoVozValidade = null;
+  }
   const rec = new SpeechRecognition();
+  reconhecimentoVozValidade = rec;
   rec.lang = "pt-BR";
   rec.continuous = false;
   rec.interimResults = false;
-  rec.maxAlternatives = 5;
+  rec.maxAlternatives = 8;
   let finalizado = false;
-  const finalizarSemData = () => {
+  const aindaAtual = () => minhaTentativa === tentativaVozValidade;
+  const finalizar = () => {
     if (finalizado) return;
     finalizado = true;
-    abrirCalendarioValidade();
+    if (aindaAtual() && reconhecimentoVozValidade === rec) reconhecimentoVozValidade = null;
   };
   rec.onresult = function(e) {
+    if (!aindaAtual()) return;
     const alternativas = Array.from(e.results || []).flatMap(r => Array.from(r || []).map(a => a.transcript || ""));
-    let data = null;
     for (const fala of alternativas) {
-      data = converterTextoParaData(fala);
-      if (data) break;
+      const data = converterTextoParaData(fala);
+      if (data) {
+        finalizar();
+        preencherValidade(data);
+        return;
+      }
     }
-    if (data) {
-      finalizado = true;
-      preencherValidade(data);
-    } else {
-      finalizarSemData();
-    }
+    finalizar();
+    alert("Não consegui entender a data. Toque no microfone e fale novamente, por exemplo: doze do quatro de dois mil e vinte e cinco.");
   };
   rec.onerror = function(e) {
+    if (!aindaAtual()) return;
     console.warn("Reconhecimento de voz:", e.error);
-    finalizarSemData();
+    finalizar();
+    if (e.error !== "aborted" && e.error !== "no-speech")
+      alert("Não foi possível reconhecer a fala. Toque no microfone e tente novamente.");
   };
-  rec.onnomatch = finalizarSemData;
+  rec.onnomatch = function() {
+    if (!aindaAtual()) return;
+    finalizar();
+    alert("Não consegui entender a data. Toque no microfone e fale novamente.");
+  };
   rec.onend = function() {
-    if (!finalizado) finalizarSemData();
+    if (!aindaAtual() || finalizado) return;
+    finalizar();
   };
   try { rec.start(); }
   catch (erro) {
     console.error("Não foi possível iniciar o microfone:", erro);
-    finalizarSemData();
+    finalizar();
+    alert("Não foi possível iniciar o microfone. Tente novamente.");
   }
 }
 
@@ -1522,6 +1540,10 @@ function converterTextoParaData(texto) {
   // Mês/ano ou mês-ano, como ABR/28.
   const mesAno = t.match(/\b(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|sep|out|nov|dez)[\s./-]+(20\d{2}|\d{2})\b/i);
   if (mesAno) return montar(mesAno[2],meses[mesAno[1]],"01");
+
+  // Data falada: "12 do 4 de 2025" ou "12 de 4 de 2025".
+  const falada=t.match(/\b(\d{1,2})\s+(?:do|de)\s+(\d{1,2})\s+(?:de\s+)?(20\d{2}|\d{2})\b/);
+  if(falada) return montar(falada[3],falada[2],falada[1]);
 
   // Data numérica: DD/MM/AAAA, DD-MM-AA ou AAAA-MM-DD.
   let m=t.match(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b/);
