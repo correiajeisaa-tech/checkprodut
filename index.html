@@ -333,6 +333,7 @@
         <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Pássaros</option><option>Areia</option><option>Petiscos Secos</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
         <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
         <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de vencimentos · 30 dias</button>
+        <div class="subtitle" style="grid-column:1/-1;padding:4px 2px;font-weight:700;">Produtos cadastrados no banco de dados: <strong id="total">0</strong></div>
       </div>
     </details>
 
@@ -1226,10 +1227,11 @@ function renderizar() {
     return matchBusca && matchSetor && matchFunc && matchPainel && matchSituacao;
   });
 
+  document.getElementById("total").textContent = produtos.length;
   document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
   document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
   document.getElementById("alertaRetirada").textContent = produtos.filter(p => { const d=diasRestantes(p.validade); return d!==null && d>=0 && d<=10 && !p.retiradoVenda; }).length;
-  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["TODOS",15,30,"RETIRAR"][i] === filtroPainelAtual));
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["RETIRAR",15,30][i] === filtroPainelAtual));
 
   const tbody = document.getElementById("lista");
   tbody.innerHTML = "";
