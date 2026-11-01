@@ -219,7 +219,7 @@
     <div class="card green" role="button" tabindex="0" onclick="filtrarPainel('TODOS',this)"><small>Produtos Cadastrados</small><div class="number" id="total">0</div></div>
     <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Troca de etiqueta · 15%</small><div class="number" id="alerta15">0</div></div>
     <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Troca de etiqueta · 30%</small><div class="number" id="alerta30">0</div></div>
-    <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Etiquetas Atualizadas</small><div class="number" id="atualizados">0</div></div>
+    <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('RETIRAR',this)"><small>Produtos perto de vencer · retirar da prateleira</small><div class="number" id="alertaRetirada">0</div></div>
   </section>
   <section class="panel" id="painelProdutosResumo" hidden style="margin-top:-6px;">
     <div class="panel-head"><div><h3 id="resumoTitulo">Produtos</h3><div class="subtitle" id="resumoSubtitulo"></div></div><button type="button" class="outline" onclick="fecharResumoPainel()">Fechar ✕</button></div>
@@ -1221,8 +1221,8 @@ function renderizar() {
   document.getElementById("total").textContent = produtos.length;
   document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
   document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
-  document.getElementById("atualizados").textContent = produtos.filter(p => p.etiquetaAtualizada).length;
-  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["TODOS",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
+  document.getElementById("alertaRetirada").textContent = produtos.filter(p => { const d=diasRestantes(p.validade); return d!==null && d>=0 && d<=10 && !p.retiradoVenda; }).length;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["TODOS",15,30,"RETIRAR"][i] === filtroPainelAtual));
 
   const tbody = document.getElementById("lista");
   tbody.innerHTML = "";
@@ -1276,8 +1276,8 @@ function atualizarResumoPainel() {
   const painel=document.getElementById("painelProdutosResumo");
   if(!painel)return;
   if(!painelResumoAberto){painel.hidden=true;return;}
-  const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",ATUALIZADAS:"Etiquetas atualizadas"};
-  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
+  const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",RETIRAR:"Produtos perto de vencer · retirar da prateleira"};
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)>=0&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
   document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
   const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
