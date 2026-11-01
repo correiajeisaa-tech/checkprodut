@@ -569,35 +569,64 @@ function importarTextoColado() {
   const status=document.getElementById("statusImportacaoTexto");
   const texto=campo.value.trim();
   if(!texto){status.textContent="Cole os dados antes de importar.";return;}
-  const linhas=texto.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const separar=linha=>linha.includes("\t")?linha.split("\t"):linha.split(/\s*;\s*/);
-  const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
-  const ehGtin=h=>/gtin|ean/.test(h);
-  const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras/.test(h);
+  const linhas=texto.replace(/^\\uFEFF/,"").split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+  const norm=v=>String(v??"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
+  const ehGtin=h=>/\\b(gtin|ean)\\b/.test(h)||/codigo.*barra|cod.*barra|barras/.test(h);
   const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
-  const ehValidade=h=>/valid|venc|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
-  let dados=[], cabecalho=-1, colGtin=-1, colDesc=-1, colVal=-1;
+  const ehValidade=h=>/valid|venc|data.*(val|venc)/.test(h);
+  const separar=linha=>linha.includes("\\t")?linha.split("\\t"):linha.split(/\\s*;\\s*/);
   const matriz=linhas.map(separar);
-  for(let i=0;i<Math.min(matriz.length,30);i++){
-    const h=matriz[i].map(norm);
-    const g=h.findIndex(ehCodigo),d=h.findIndex(ehDescricao),v=h.findIndex(ehValidade);
+  let dados=[],cabecalho=-1,colGtin=-1,colDesc=-1,colVal=-1;
+  for(let i=0;i<Math.min(matriz.length,40);i++){
+    const h=matriz[i].map(norm),g=h.findIndex(ehGtin),d=h.findIndex(ehDescricao),v=h.findIndex(ehValidade);
     if(g>=0&&d>=0&&v>=0){cabecalho=i;colGtin=g;colDesc=d;colVal=v;break;}
   }
-  if(cabecalho<0){status.textContent="Não encontrei os cabeçalhos GTIN/EAN, descrição e data de validade. Copie também a primeira linha do relatório.";return;}
-  for(let i=cabecalho+1;i<matriz.length;i++){
-    const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\.0$/,"").replace(/\D/g,"");
-    if(!/^\d{8,14}$/.test(gtin))continue;
-    dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+  if(cabecalho>=0){
+    for(let i=cabecalho+1;i<matriz.length;i++){
+      const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\\.0$/,"").replace(/\\D/g,"");
+      if(/^\\d{8,14}$/.test(gtin))dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+    }
+  } else {
+    // Relatórios copiados de PDF/Excel às vezes quebram um GTIN em várias linhas e perdem os cabeçalhos.
+    // Reúne fragmentos numéricos consecutivos e usa a primeira data posterior ao código como validade candidata.
+    const datas=[];
+    for(let i=0;i<linhas.length;i++){
+      const m=linhas[i].match(/\\b(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{4})\\b/);
+      if(m)datas.push({linha:i,data:m[1]});
+    }
+    const codigos=[];
+    for(let i=0;i<linhas.length;i++){
+      if(!/^\\d{3,14}(?:\\.0)?$/.test(linhas[i]))continue;
+      let numero=linhas[i].replace(/\\.0$/,"").replace(/\\D/g,""),fim=i;
+      while(numero.length<8&&fim+1<linhas.length&&/^\\d{1,14}(?:\\.0)?$/.test(linhas[fim+1])){
+        fim++;numero+=linhas[fim].replace(/\\.0$/,"").replace(/\\D/g,"");
+      }
+      if(/^\\d{8,14}$/.test(numero)){codigos.push({codigo:numero,inicio:i,fim});i=fim;}
+    }
+    for(const c of codigos){
+      const anterior=codigos.filter(x=>x.fim<c.inicio).pop();
+      const proximo=codigos.find(x=>x.inicio>c.fim);
+      const limite=proximo?proximo.inicio:linhas.length;
+      const data=datas.find(x=>x.linha>c.fim&&x.linha<limite);
+      const descricaoLinhas=linhas.slice(anterior?anterior.fim+1:0,c.inicio)
+        .filter(x=>!/^\\d+(?:[.,]\\d+)?$/.test(x)&&!/^\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{4}$/.test(x)&&!/^ativo$/i.test(x));
+      const descricao=descricaoLinhas.find(x=>/[A-Za-zÀ-ÿ]{3}/.test(x))||"Produto sem descrição";
+      if(data)dados.push({codigo:c.codigo,descricao,validade:data.data});
+    }
+    if(!dados.length){
+      status.textContent="Não consegui separar com segurança GTIN, descrição e validade nesse texto. Copie as linhas completas do produto ou inclua o cabeçalho do relatório.";
+      return;
+    }
+    status.textContent="Formato sem cabeçalho reconhecido. Identifiquei "+dados.length+" produto(s) pelo código e pela primeira data após cada GTIN. Confira os dados no resumo antes de continuar.";
   }
   try {
     gravarImportacao(dados,"Texto colado",null);
-    status.textContent="Texto processado. Confira o resumo da importação.";
+    if(cabecalho>=0)status.textContent="Texto processado. Confira o resumo da importação.";
     campo.value="";
   } catch(err) {
     status.textContent=err.message||"Não foi possível importar o texto.";
   }
 }
-
 // BUSCA AUTOMÁTICA AO BIPAR
 let timerBuscaInternet = null;
 let ultimaBuscaInternet = "";
