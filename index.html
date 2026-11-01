@@ -643,9 +643,27 @@ function mostrarStatusDescricao(texto, erro=false) {
 // quando a base retorna um nome de produto utilizável.
 async function pesquisarDescricaoNaInternet(ean) {
   if (cacheBuscaInternet.has(ean)) return cacheBuscaInternet.get(ean);
+
+  // Cadastro de conferência para EANs já identificados pela equipe.
+  // Evita depender de uma base externa para produtos que já foram confirmados.
+  const catalogoConhecido = {
+    "7896181215387": "Gastrointestinal Padrão - 1,5 kg",
+    "20001330000115": "Gastrointestinal Fibre Response - 1,5 kg",
+    "7908248302197": "Gastrointestinal Hydrolyzed Protein - 1,5 kg",
+    "7897348207832": "PremieR Fórmula Cães Sênior - Raças Grandes e Gigantes - Frango"
+  };
+  if (catalogoConhecido[ean]) {
+    cacheBuscaInternet.set(ean, catalogoConhecido[ean]);
+    return catalogoConhecido[ean];
+  }
+
+  // Fontes abertas: Pet Food Facts, Open Food Facts e Open Products Facts.
+  // A última amplia a cobertura para produtos que não são alimentos humanos.
   const fontes = [
     "https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
-    "https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json"
+    "https://world.openproductsfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
+    "https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
+    "https://br.openfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json"
   ];
   for (const url of fontes) {
     try {
@@ -654,14 +672,17 @@ async function pesquisarDescricaoNaInternet(ean) {
       const dados = await resposta.json();
       if (dados.status !== 1 || !dados.product) continue;
       const p = dados.product;
-      const nome = String(p.product_name_pt || p.product_name || p.abbreviated_product_name || "").trim();
+      const nome = String(
+        p.product_name_pt || p.product_name || p.abbreviated_product_name ||
+        p.generic_name_pt || p.generic_name || p.product_name_en || ""
+      ).trim();
       if (!nome || nome.length < 3) continue;
       const detalhes = [p.brands, p.quantity].filter(Boolean).join(" ");
-      const descricao = [nome, detalhes].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
+      const descricao = [nome, detalhes].filter(Boolean).join(" - ").replace(/\\s+/g, " ").trim();
       cacheBuscaInternet.set(ean, descricao);
       return descricao;
     } catch (erro) {
-      console.warn("Consulta de produto indisponível:", erro);
+      console.warn("Consulta de produto indisponível:", url, erro);
     }
   }
   return "";
