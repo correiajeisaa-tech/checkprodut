@@ -476,6 +476,8 @@ window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
   renderizar();
   atualizarListaFuncionarios();
   atualizarContadorBanco();
+  const modalBanco = document.getElementById("modalBanco");
+  if (Array.isArray(novoCatalogo) && modalBanco?.style.display === "flex") renderizarTabelaBanco();
 };
 
 async function salvar() {
@@ -573,12 +575,12 @@ async function gravarImportacao(dados, origem, event) {
     const key=chaveCatalogo(item);
     if(existentes.has(key)){repetidos++;continue;}
     const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
-    if(pendente){pendente.descricao=item.descricao;pendente.id=idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
-    item.id=idCatalogo(item);
+    if(pendente){pendente.descricao=item.descricao;pendente.id=window.idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
+    item.id=window.idCatalogo(item);
     catalogoBase.push(item);existentes.add(key);adicionados++;
   }
   // Normaliza também registros antigos sem ID para que a sincronização seja estável.
-  catalogoBase.forEach(item=>{if(!item.id)item.id=idCatalogo(item);});
+  catalogoBase.forEach(item=>{if(!item.id)item.id=window.idCatalogo(item);});
   let acompanhamentosNovos=0;
   const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
   for(const item of novosAcompanhamentos){
@@ -1806,11 +1808,15 @@ function idCatalogo(item) {
   for (let i=0; i<base.length; i++) { hash ^= base.charCodeAt(i); hash = Math.imul(hash, 16777619); }
   return "cat_" + (hash >>> 0).toString(36) + "_" + String(item.codigo ?? "").replace(/\\D/g,"").slice(-8);
 }
+// Expõe o gerador de IDs para as rotinas do script clássico de importação.
+window.idCatalogo = idCatalogo;
 async function seedCollection(name, localItems, remoteDocs) {
   const remote = new Map(remoteDocs.map(d => [String(d.id), d]));
   const local = Array.isArray(localItems) ? localItems : [];
   // Produtos removidos na nuvem nunca devem reaparecer por causa de um cache antigo.
   // A migração local de produtos só é permitida quando a coleção remota está vazia.
+  // Produtos locais só são migrados quando a coleção remota está vazia.
+  // O catálogo é reconciliado por ID, nunca pela quantidade de registros.
   const podeMigrarLocal = name === "checkprodut_catalogo" || remote.size === 0;
   if (podeMigrarLocal) {
     for (const item of local) {
@@ -1819,7 +1825,8 @@ async function seedCollection(name, localItems, remoteDocs) {
       remote.set(key, { ...item, id: key });
     }
   }
-  const pendentes = [...remote.entries()].filter(([key]) => !remoteDocs.some(d => String(d.id) === key));
+  const idsRemotos = new Set(remoteDocs.map(d => String(d.id)));
+  const pendentes = [...remote.entries()].filter(([key]) => !idsRemotos.has(key));
   for (let inicio=0; inicio<pendentes.length; inicio+=400) {
     const batch = writeBatch(firestoreDb);
     pendentes.slice(inicio,inicio+400).forEach(([key,item]) => batch.set(doc(collection(firestoreDb,name),key),item));
@@ -1836,11 +1843,16 @@ async function startCloud(user) {
   const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
   const cloudP=await seedCollection("checkprodut_produtos",localP,pSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
   let cloudC=cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
-  // Catálogo é compartilhado: o MASTER recupera o cache local quando ele contém mais
-  // registros que a nuvem. A chave determinística evita duplicação entre aparelhos/importações.
-  if(role==="MASTER" && localC.length>cloudC.length) {
-    status.textContent="Enviando catálogo deste aparelho para a nuvem ("+localC.length+" itens)...";
-    cloudC=await seedCollection("checkprodut_catalogo",localC,cloudC);
+  // O MASTER reconcilia os registros locais ausentes na nuvem por identificador,
+  // não pela contagem. Assim, itens do computador não são ignorados quando a
+  // nuvem e o cache local possuem a mesma quantidade, mas registros diferentes.
+  if(role==="MASTER" && localC.length) {
+    const idsNuvem = new Set(cloudC.map(item => String(item.id || idCatalogo(item))));
+    const locaisAusentes = localC.filter(item => !idsNuvem.has(String(item.id || idCatalogo(item))));
+    if(locaisAusentes.length) {
+      status.textContent="Sincronizando "+locaisAusentes.length+" itens locais que ainda não estão na nuvem...";
+      cloudC=await seedCollection("checkprodut_catalogo",localC,cloudC);
+    }
   }
   localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
   window.aplicarDadosDaNuvem(cloudP,cloudC);
@@ -1852,8 +1864,11 @@ async function startCloud(user) {
   stopCatalog=onSnapshot(catalogRef,snap=>{
     const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
     window.aplicarDadosDaNuvem(null,rows);
-    window.renderizarTabelaBanco?.();
-  },err=>{status.textContent="Erro ao sincronizar catálogo";console.error(err);});
+    status.textContent="Nuvem conectada · "+rows.length+" itens no catálogo · sincronização ativa";
+  },err=>{
+    status.textContent="Erro ao sincronizar catálogo ("+(err?.code||"sem código")+")";
+    console.error("Falha no listener do catálogo CheckProdut:",err);
+  });
   status.textContent="Nuvem conectada · "+cloudC.length+" itens no catálogo · sincronização ativa";
 }
 window.CheckProdutCloud = {
@@ -1874,10 +1889,10 @@ window.CheckProdutCloud = {
     const tamanhoLote = 400;
     for (let inicio = 0; inicio < rows.length; inicio += tamanhoLote) {
       const batch = writeBatch(firestoreDb);
-      rows.slice(inicio, inicio + tamanhoLote).forEach((item, indice) => {
-        const codigo = String(item.codigo || "sem-codigo").replace(/[^a-zA-Z0-9_-]/g, "_");
-        const validade = String(item.validadeOrigem || "sem-validade").replace(/[^a-zA-Z0-9_-]/g, "_");
-        const chave = String(item.id || (codigo + "__" + validade + "__" + inicio + "_" + indice));
+      rows.slice(inicio, inicio + tamanhoLote).forEach(item => {
+        // ID determinístico: a posição na planilha/lote não pode criar outro documento
+        // quando a ordem dos registros mudar entre computador e celular.
+        const chave = String(item.id || idCatalogo(item));
         batch.set(doc(firestoreDb, "checkprodut_catalogo", chave), { ...item, id: chave });
       });
       await batch.commit();
