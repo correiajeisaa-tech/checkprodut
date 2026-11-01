@@ -67,7 +67,12 @@
     .secondary { background:#e2eae4; color:var(--green); }
     .danger { background:#fae9e8; color:#a83c3c; }
     .outline { background:transparent; border:1px solid var(--border); color:var(--text); }
-    .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+    .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .card { cursor:pointer; transition:transform .15s,box-shadow .15s; min-height:108px; }
+    .card:focus-visible,.card:hover { outline:2px solid var(--cyan); transform:translateY(-2px); }
+    .card.active-filter { border:2px solid var(--cyan); }
+    .filter-row { display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+    @media(max-width:650px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card{padding:13px;min-height:96px}.number{font-size:25px}.filter-row{grid-template-columns:1fr 1fr}.filter-row input{grid-column:1/-1}}
     .card { background:white; padding:16px; border:1px solid var(--border); border-radius:12px; }
     .card small { color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; }
     .number { font-size:28px; font-weight:800; margin-top:6px; line-height:1; }
@@ -187,10 +192,10 @@
   </div>
 
   <section class="cards">
-    <div class="card green"><small>Produtos Cadastrados</small><div class="number" id="total">0</div></div>
-    <div class="card orange"><small>Alerta 15%</small><div class="number" id="alerta15">0</div></div>
-    <div class="card red"><small>Alerta 30%</small><div class="number" id="alerta30">0</div></div>
-    <div class="card blue"><small>Etiquetas Atualizadas</small><div class="number" id="atualizados">0</div></div>
+    <div class="card green" role="button" tabindex="0" onclick="filtrarPainel('TODOS',this)"><small>Produtos Cadastrados</small><div class="number" id="total">0</div></div>
+    <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Troca de etiqueta · 15%</small><div class="number" id="alerta15">0</div></div>
+    <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Troca de etiqueta · 30%</small><div class="number" id="alerta30">0</div></div>
+    <div class="card blue" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Etiquetas Atualizadas</small><div class="number" id="atualizados">0</div></div>
   </section>
 
   <!-- FORMULÁRIO DE CADASTRO -->
@@ -295,11 +300,12 @@
       <div class="tab-item" onclick="filtrarSetor('Outros', this)">Outros</div>
     </div>
 
-    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-      <input id="busca" style="flex:1; min-width:200px;" placeholder="Pesquisar por código EAN, nome ou funcionário..." oninput="renderizar()">
-      <select id="filtroFuncionario" style="width:180px;" onchange="renderizar()">
-        <option value="">Todos os Funcionários</option>
-      </select>
+    <div class="filter-row">
+      <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
+      <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
+      <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
+      <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
+      <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de vencimentos · 30 dias</button>
     </div>
 
     <div class="table-wrap">
