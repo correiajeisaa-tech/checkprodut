@@ -695,6 +695,20 @@ async function buscarProdutoPorCodigo(codigo) {
   const campoDescricao = document.getElementById("descricao");
   const campoCodigo = document.getElementById("barcode");
   if (!campoDescricao || !campoCodigo) return;
+
+  // Resolução local prioritária para EANs já conferidos, sem depender da internet.
+  const produtosConfirmados = {
+    "7898232038563": "Silmox CL 300 mg - Vansil - 10 comprimidos"
+  };
+  if (produtosConfirmados[ean]) {
+    clearTimeout(timerBuscaInternet);
+    campoDescricao.value = produtosConfirmados[ean];
+    autoDetectarSetor(campoDescricao.value);
+    mostrarStatusDescricao("Descrição identificada pelo cadastro de referência do CheckProdut.");
+    ultimaBuscaInternet = ean;
+    return;
+  }
+
   if (!ean) {
     clearTimeout(timerBuscaInternet);
     ultimaBuscaInternet = "";
