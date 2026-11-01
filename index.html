@@ -657,14 +657,21 @@ async function buscarProdutoPorCodigo(codigo) {
     return;
   }
 
-  // Primeiro consulta o catálogo local já sincronizado com a nuvem.
+  // Primeiro consulta o catálogo sincronizado. Se não encontrar, consulta
+  // também os produtos já cadastrados no acompanhamento (barcode + descricao).
+  // Isso mantém a busca automática mesmo quando o catálogo foi limpo/reimportado.
   const item = catalogoBase.find(c => String(c.codigo || "").replace(/\s+/g, "").trim() === ean
     && !descricaoAusente(c.descricao));
-  if (item) {
-    campoDescricao.value = item.descricao;
-    autoDetectarSetor(item.descricao);
-    mostrarStatusDescricao("Descrição encontrada no banco da loja.");
-    if (item.validadeOrigem && /^\d{4}-\d{2}-\d{2}$/.test(item.validadeOrigem)) {
+  const produtoSalvo = !item && produtos.find(p =>
+    String(p.barcode || p.codigo || "").replace(/\s+/g, "").trim() === ean
+    && !descricaoAusente(p.descricao)
+  );
+  const registroEncontrado = item || produtoSalvo;
+  if (registroEncontrado) {
+    campoDescricao.value = registroEncontrado.descricao;
+    autoDetectarSetor(registroEncontrado.descricao);
+    mostrarStatusDescricao(item ? "Descrição encontrada no banco da loja." : "Descrição encontrada nos produtos já cadastrados.");
+    if (item?.validadeOrigem && /^\d{4}-\d{2}-\d{2}$/.test(item.validadeOrigem)) {
       document.getElementById("validade").value = item.validadeOrigem;
     }
     ultimaBuscaInternet = ean;
