@@ -643,6 +643,14 @@ function mostrarStatusDescricao(texto, erro=false) {
 
 // Consulta bases públicas pelo código de barras. O resultado só é salvo
 // quando a base retorna um nome de produto utilizável.
+// Cadastro de referência conferido por EAN. Prioridade sobre descrições genéricas/importadas.
+const descricoesVerificadasEAN = {
+  "7896181215387": "Ração Royal Canin Veterinary Diet Gastrointestinal Feline S/O para Gatos Adultos - 1,5 kg"
+};
+function descricaoVerificadaPorEAN(ean) {
+  return descricoesVerificadasEAN[String(ean || "").replace(/\\s+/g, "").trim()] || "";
+}
+
 async function pesquisarDescricaoNaInternet(ean) {
   const codigo = String(ean || "").replace(/\s+/g, "").trim();
   if (cacheBuscaInternet.has(codigo)) return cacheBuscaInternet.get(codigo);
@@ -713,6 +721,36 @@ async function buscarProdutoPorCodigo(codigo) {
   clearTimeout(timerBuscaInternet);
   if (!/^\d{8,14}$/.test(ean)) {
     mostrarStatusDescricao("Aguardando o código completo (8 a 14 números)...");
+    return;
+  }
+
+  // Referência conferida por EAN tem prioridade sobre catálogo antigo/genérico.
+  const descricaoVerificada = descricaoVerificadaPorEAN(ean);
+  if (descricaoVerificada) {
+    let catalogoAlterado = false;
+    catalogoBase.forEach(c => {
+      if (String(c.codigo || "").replace(/\\s+/g, "").trim() === ean && c.descricao !== descricaoVerificada) {
+        c.descricao = descricaoVerificada;
+        c.origemDescricao = "EAN verificado";
+        catalogoAlterado = true;
+      }
+    });
+    produtos.forEach(p => {
+      if (String(p.barcode || p.codigo || "").replace(/\\s+/g, "").trim() === ean && p.descricao !== descricaoVerificada) {
+        p.descricao = descricaoVerificada;
+        p.origemDescricao = "EAN verificado";
+      }
+    });
+    if (catalogoAlterado) {
+      localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
+      window.CheckProdutCloud?.saveCatalog(catalogoBase);
+      renderizarTabelaBanco();
+    }
+    localStorage.setItem("checkprodut_produtos_v8", JSON.stringify(produtos));
+    campoDescricao.value = descricaoVerificada;
+    autoDetectarSetor(descricaoVerificada);
+    mostrarStatusDescricao("Descrição conferida pelo EAN.");
+    ultimaBuscaInternet = ean;
     return;
   }
 
