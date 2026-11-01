@@ -752,6 +752,8 @@ async function pesquisarDescricaoNaInternet(ean) {
   // APIs oficiais: prioriza o banco de alimentação animal e consulta também
   // o catálogo geral com product_type=all para permitir redirecionamentos.
   const bases = [
+    // Catálogo aberto Datakick: consulta direta por UPC/EAN.
+    {nome:"Datakick (GTIN Search)", url:"https://www.gtinsearch.org/api/items/" + encodeURIComponent(codigo)},
     {nome:"Open Pet Food Facts", url:"https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
     {nome:"Open Food Facts v3 (petfood)", url:"https://world.openfoodfacts.org/api/v3.6/product/" + encodeURIComponent(codigo) + ".json?product_type=petfood&fields=code,product_name,product_name_pt,abbreviated_product_name,generic_name,generic_name_pt,brands,quantity,categories"},
     {nome:"Open Food Facts v3 (todos os tipos)", url:"https://world.openfoodfacts.org/api/v3.6/product/" + encodeURIComponent(codigo) + ".json?product_type=all&fields=code,product_name,product_name_pt,abbreviated_product_name,generic_name,generic_name_pt,brands,quantity,categories"},
@@ -761,16 +763,18 @@ async function pesquisarDescricaoNaInternet(ean) {
 
   const extrairProduto = dados => {
     if (!dados || typeof dados !== "object") return null;
-    // v2 usa status=1; v3 pode devolver product diretamente sem status numérico.
-    const p = dados.product && typeof dados.product === "object" ? dados.product : null;
+    // Datakick pode devolver o item diretamente; Open* devolve {product:{...}}.
+    const p = dados.product && typeof dados.product === "object" ? dados.product
+      : (dados.item && typeof dados.item === "object" ? dados.item : dados);
     if (!p || (dados.status === 0 && !p.product_name && !p.product_name_pt)) return null;
     const nome = [
       p.product_name_pt, p.product_name, p.abbreviated_product_name,
-      p.generic_name_pt, p.generic_name, p.product_name_en
+      p.generic_name_pt, p.generic_name, p.product_name_en,
+      p.title, p.name, p.description, p.product
     ].find(v => typeof v === "string" && v.trim().length >= 3);
     if (!nome) return null;
-    const marca = String(p.brands || "").trim();
-    const quantidade = String(p.quantity || "").trim();
+    const marca = String(p.brands || p.brand || p.manufacturer || "").trim();
+    const quantidade = String(p.quantity || p.size || p.net_content || "").trim();
     return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
   };
 
