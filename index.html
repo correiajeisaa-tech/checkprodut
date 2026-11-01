@@ -108,6 +108,14 @@
     .actions { display:flex; gap:4px; flex-wrap:wrap; }
     .actions button { padding:5px 8px; font-size:11px; }
     .empty { text-align:center; color:var(--muted); padding:35px 10px; font-size:13px; }
+    .filtros-recolhiveis{margin:0 0 12px;border:1px solid var(--border);border-radius:10px;background:#fbfcfe}
+    .filtros-recolhiveis>summary{list-style:none;cursor:pointer}
+    .filtros-recolhiveis>summary::-webkit-details-marker{display:none}
+    .filtros-resumo{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;color:var(--muted);font-size:12px;font-weight:700}
+    .filtros-seta{font-size:18px;transition:transform .2s}
+    .filtros-recolhiveis[open] .filtros-seta{transform:rotate(180deg)}
+    .filtros-recolhiveis[open]>.filtros-resumo{border-bottom:1px solid var(--border)}
+    .filtros-recolhiveis .filter-row{padding:12px;margin:0}
     .produtos-panel{padding:0;overflow:hidden}
     .produtos-recolhivel>summary{list-style:none;cursor:pointer}
     .produtos-recolhivel>summary::-webkit-details-marker{display:none}
@@ -312,13 +320,16 @@
           <span class="subtitle">Lista de produtos</span>
           <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
         </div>
-    <div class="filter-row">
-      <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
-      <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
-      <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
-      <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
-      <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de vencimentos · 30 dias</button>
-    </div>
+    <details class="filtros-recolhiveis">
+      <summary class="filtros-resumo"><span>Filtros e setores</span><span class="filtros-seta" aria-hidden="true">⌄</span></summary>
+      <div class="filter-row">
+        <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
+        <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
+        <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
+        <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
+        <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de vencimentos · 30 dias</button>
+      </div>
+    </details>
 
     <div class="table-wrap">
       <table>
