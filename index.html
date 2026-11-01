@@ -1799,8 +1799,13 @@ async function startCloud(user) {
   const localP=JSON.parse(localStorage.getItem("checkprodut_produtos_v8")||"[]");
   const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
   const cloudP=await seedCollection("checkprodut_produtos",localP,pSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
-  // O catálogo tem a nuvem como única fonte da verdade. Não mesclar cache local antigo: isso ressuscita itens já apagados por outro acesso.
-  const cloudC=cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+  let cloudC=cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
+  // Recuperação protegida do catálogo: se o MASTER tiver um cache local maior que a nuvem,
+  // preserva e envia os registros locais antes de substituir o cache. STORE nunca faz migração.
+  if(role==="MASTER" && localC.length>cloudC.length) {
+    cloudC=await seedCollection("checkprodut_catalogo",localC,cloudC);
+    status.textContent="Recuperando catálogo local: "+cloudC.length+" itens...";
+  }
   localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
   window.aplicarDadosDaNuvem(cloudP,cloudC);
   ready=true;
