@@ -1774,6 +1774,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // Mesmo transporte estável usado no ScanCheck: long polling ajuda em redes e navegadores que bloqueiam WebChannel.
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+window.db = db; // Disponibiliza a mesma instância para rotinas legadas executadas fora deste módulo.
 const allowed = {
   "correiajeisaa@gmail.com": "MASTER",
   "petcamp.novaodessa@gmail.com": "STORE"
