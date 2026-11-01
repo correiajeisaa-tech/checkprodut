@@ -541,7 +541,7 @@ async function importarPDF(file) {
   return dados;
 }
 
-function gravarImportacao(dados, origem, event) {
+async function gravarImportacao(dados, origem, event) {
   let comCodigo=0, comDescricao=0, comValidade=0, semValidade=0;
   const novosCatalogo=[], novosAcompanhamentos=[];
   const codigoLimpo=v=>String(v??"").trim().replace(/\.0$/,"").replace(/\s+/g,"").replace(/[^0-9]/g,"");
@@ -578,8 +578,16 @@ function gravarImportacao(dados, origem, event) {
     chavesProdutos.add(key);acompanhamentosNovos++;
   }
   localStorage.setItem(CHAVE_BASE_CATALOGO,JSON.stringify(catalogoBase));
-  window.CheckProdutCloud?.saveCatalog(catalogoBase);
-  if(acompanhamentosNovos) salvar();
+  try {
+    if (!window.CheckProdutCloud?.isReady?.()) throw new Error("A conexão com a nuvem ainda não está pronta. Aguarde o status Nuvem conectada e tente importar novamente.");
+    await window.CheckProdutCloud.saveCatalog(catalogoBase);
+    if(acompanhamentosNovos) await salvar();
+  } catch (erroNuvem) {
+    console.error("Falha ao sincronizar banco importado:", erroNuvem);
+    alert("O banco foi processado neste navegador, mas não foi possível confirmar o envio para a nuvem.\n\n" + (erroNuvem?.message || erroNuvem));
+    throw erroNuvem;
+  }
+  if(!acompanhamentosNovos) { renderizar(); }
   else { renderizar(); }
   atualizarContadorBanco();renderizarTabelaBanco();atualizarListaFuncionarios();
   alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
@@ -593,7 +601,7 @@ async function carregarRelatorioLoja(event) {
     const ext=file.name.split(".").pop().toLowerCase();
     if(ext==="pdf"){
       const dados=await importarPDF(file);
-      gravarImportacao(dados,"PDF",event);
+      await gravarImportacao(dados,"PDF",event);
       return;
     }
     if(!["xlsx","xls","csv"].includes(ext))throw new Error("Formato não suportado. Use Excel, CSV ou PDF.");
@@ -622,7 +630,7 @@ async function carregarRelatorioLoja(event) {
         dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
       }
     }
-    gravarImportacao(dados,"Excel/CSV",event);
+    await gravarImportacao(dados,"Excel/CSV",event);
   }catch(err){
     console.error("Erro ao importar relatório:",err);
     alert("Não foi possível importar o arquivo.\n\n"+(err?.message||err));
@@ -639,7 +647,7 @@ function abrirColagemEspecial() {
   setTimeout(()=>document.getElementById("textoImportacao")?.focus({preventScroll:true}),250);
 }
 
-function importarTextoColado() {
+async function importarTextoColado() {
   const campo=document.getElementById("textoImportacao");
   const status=document.getElementById("statusImportacaoTexto");
   const texto=campo.value.trim();
@@ -697,7 +705,7 @@ function importarTextoColado() {
     status.textContent="Formato sem cabeçalho reconhecido. Identifiquei "+dados.length+" produto(s) pelo código e pela primeira data após cada GTIN. Confira os dados no resumo antes de continuar.";
   }
   try {
-    gravarImportacao(dados,"Texto colado",null);
+    await gravarImportacao(dados,"Texto colado",null);
     if(cabecalho>=0)status.textContent="Texto processado. Confira o resumo da importação.";
     campo.value="";
   } catch(err) {
@@ -1773,7 +1781,7 @@ async function startCloud(user) {
 }
 window.CheckProdutCloud = {
   saveProducts: async rows => {
-    if(!ready) return;
+    if(!ready) throw new Error("Nuvem ainda não conectada; nenhum produto foi enviado.");
     // Firestore limita cada WriteBatch a 500 operações.
     for(let inicio=0;inicio<rows.length;inicio+=400) {
       const batch=writeBatch(db);
@@ -1781,8 +1789,9 @@ window.CheckProdutCloud = {
       await batch.commit();
     }
   },
+  isReady: () => ready,
   saveCatalog: async rows => {
-    if(!ready) return;
+    if(!ready) throw new Error("Nuvem ainda não conectada; nenhum item do banco foi enviado.");
     // Firestore permite no máximo 500 operações por lote. Divide catálogos
     // grandes em blocos menores para que a atualização não falhe.
     const tamanhoLote = 400;
