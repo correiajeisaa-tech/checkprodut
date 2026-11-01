@@ -1334,7 +1334,7 @@ function renderizar() {
     const dias = diasRestantes(p.validade);
     const s = situacao(p);
     const avisoRetirada = dias !== null && dias <= 10 && !p.retiradoVenda;
-    const statusTag = dias < 0 ? `<span class="tag urgent">VENCIDO · RETIRAR</span>` : p.retiradoVenda ? `<span class="tag done">Retirado da área de venda</span>` : avisoRetirada ? `<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias} dia(s)</span>` : p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
+    const statusTag = p.retiradoVenda ? `<span class="tag done">Retirado da área de venda</span>` : dias < 0 ? `<span class="tag urgent">VENCIDO · RETIRAR</span>` : avisoRetirada ? `<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias} dia(s)</span>` : p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
