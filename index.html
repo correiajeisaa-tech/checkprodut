@@ -478,12 +478,18 @@ window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
   atualizarContadorBanco();
 };
 
-function salvar() {
+async function salvar() {
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
-  const sincronizacao = window.CheckProdutCloud?.saveProducts(produtos);
   renderizar();
   atualizarListaFuncionarios();
-  return sincronizacao;
+  try {
+    if(!window.CheckProdutCloud?.isReady()) throw new Error("Nuvem ainda não conectada.");
+    await window.CheckProdutCloud.saveProducts(produtos);
+  } catch(err) {
+    console.error("Falha ao sincronizar produtos:",err);
+    alert("A alteração ficou salva neste aparelho, mas não foi sincronizada com a nuvem: "+(err?.message||err));
+    throw err;
+  }
 }
 
 // IMPORTAÇÃO: Excel, CSV e PDF com texto selecionável.
@@ -1400,11 +1406,20 @@ function marcarAtualizada(id) {
   salvar();
 }
 
-function excluir(id) {
+async function excluir(id) {
   if (!confirm("Deseja excluir este item?")) return;
-  produtos = produtos.filter(p => p.id !== id);
-  window.CheckProdutCloud?.deleteProduct(id);
-  salvar();
+  const itemAnterior=produtos.find(p=>p.id===id);
+  if(!itemAnterior)return;
+  try {
+    if(!window.CheckProdutCloud?.isReady()) throw new Error("A nuvem ainda não está conectada. Aguarde antes de excluir.");
+    await window.CheckProdutCloud.deleteProduct(id);
+    produtos=produtos.filter(p=>p.id!==id);
+    localStorage.setItem(CHAVE_PRODUTOS,JSON.stringify(produtos));
+    renderizar();
+    atualizarListaFuncionarios();
+  } catch(err) {
+    alert("Não foi possível excluir/sincronizar o produto: "+(err?.message||err));
+  }
 }
 
 function filtrarSetor(setor, el) {
@@ -1847,7 +1862,10 @@ window.CheckProdutCloud = {
       await batch.commit();
     }
   },
-  deleteProduct: async id => { if(ready && role==="MASTER") await deleteDoc(doc(db,"checkprodut_produtos",String(id))); },
+  deleteProduct: async id => {
+    if(!ready) throw new Error("Nuvem ainda não conectada; a exclusão não foi enviada.");
+    await deleteDoc(doc(db,"checkprodut_produtos",String(id)));
+  },
   clearCatalog: async () => {
     if(!ready || role!=="MASTER") throw new Error("Somente o acesso MASTER pode apagar o catálogo.");
     const ref=collection(db,"checkprodut_catalogo");
