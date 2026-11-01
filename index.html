@@ -570,7 +570,7 @@ function importarTextoColado() {
   const texto=campo.value.trim();
   if(!texto){status.textContent="Cole os dados antes de importar.";return;}
   const linhas=texto.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const separar=linha=>linha.includes("\t")?linha.split("\\t"):linha.split(/\s*;\s*/);
+  const separar=linha=>linha.includes("\t")?linha.split("\t"):linha.split(/\s*;\s*/);
   const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
   const ehGtin=h=>/gtin|ean/.test(h);
   const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras/.test(h);
