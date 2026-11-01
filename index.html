@@ -159,6 +159,7 @@
   <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <div id="cloudBar"><span id="cloudStatus">Conectando...</span><strong id="cloudUser"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
     <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
+    <button type="button" class="secondary" onclick="abrirColagemEspecial()">📋 Colar especial</button>
     <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
       📥 Carregar Relatório da Loja (Excel, CSV ou PDF)
       <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv, .pdf" style="display:none;" onchange="carregarRelatorioLoja(event)">
@@ -604,6 +605,13 @@ async function carregarRelatorioLoja(event) {
 
 // Importa conteúdo copiado do Excel ou colado de um bloco de notas.
 // Exige cabeçalhos para não confundir código interno com GTIN.
+function abrirColagemEspecial() {
+  const painel=document.getElementById("painelImportacao");
+  painel.open=true;
+  painel.scrollIntoView({behavior:"smooth",block:"start"});
+  setTimeout(()=>document.getElementById("textoImportacao")?.focus({preventScroll:true}),250);
+}
+
 function importarTextoColado() {
   const campo=document.getElementById("textoImportacao");
   const status=document.getElementById("statusImportacaoTexto");
