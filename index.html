@@ -558,6 +558,7 @@ async function importarPDF(file) {
   const posGtin = header.find(x=>/gtin|ean/i.test(norm(x.texto)))?.x;
   const posVal = header.find(x=>/valid/i.test(norm(x.texto)))?.x;
   const posDesc = header.find(x=>/descri/i.test(norm(x.texto)))?.x;
+  const posQtd = header.find(x=>/quant|qtd|qtde|unidades/i.test(norm(x.texto)))?.x;
   if (posGtin == null || posVal == null) throw new Error("Não consegui localizar as colunas GTIN e Data de Validade no cabeçalho do PDF.");
   const dados = [];
   for (const linha of linhas) {
@@ -570,12 +571,14 @@ async function importarPDF(file) {
     const data = interpretarDataValidade(validade);
     if (!data) continue;
     const descricaoItens = linha.itens.filter(x=>posDesc!=null && x.x>posDesc-3 && x.x<posGtin-3);
+    const quantidadeItem = posQtd==null ? null : linha.itens.find(x=>x.x>=posQtd-3 && /^\d+(?:[.,]\d+)?$/.test(x.texto.replace(/\s/g,"")));
+    const quantidade = quantidadeItem ? quantidadeItem.texto : 1;
     let descricao = descricaoItens.map(x=>x.texto).join(" ").trim();
     if (!descricao) {
       const idx = linha.itens.indexOf(gtinItem);
       descricao = linha.itens.filter(x=>x.x<posGtin-3 && x.x>(posDesc ?? -Infinity)-3).map(x=>x.texto).join(" ").trim();
     }
-    dados.push({codigo,descricao:descricao||"Produto sem descrição",validade:[data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-")});
+    dados.push({codigo,descricao:descricao||"Produto sem descrição",validade:[data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-"),quantidade});
   }
   if (!dados.length) throw new Error("O PDF foi aberto, mas não encontrei linhas com GTIN e Data de Validade na mesma linha da tabela. Se for um PDF digitalizado como imagem, será necessário exportar em Excel ou usar um PDF com texto selecionável.");
   return dados;
@@ -585,58 +588,81 @@ async function gravarImportacao(dados, origem, event) {
   let comCodigo=0, comDescricao=0, comValidade=0, semValidade=0;
   const novosCatalogo=[], novosAcompanhamentos=[];
   const codigoLimpo=v=>String(v??"").trim().replace(/\.0$/,"").replace(/\s+/g,"").replace(/[^0-9]/g,"");
+  const lerQuantidade=v=>{
+    if(typeof v==="number"&&Number.isFinite(v))return Math.max(0,v);
+    let t=String(v??"").trim().replace(/\s/g,"");
+    if(!t)return 1;
+    if(t.includes(",")&&t.includes("."))t=t.replace(/\./g,"").replace(",",".");
+    else if(t.includes(","))t=t.replace(",",".");
+    else if(/^\d{1,3}(?:\.\d{3})+$/.test(t))t=t.replace(/\./g,"");
+    const n=Number(t);
+    return Number.isFinite(n)&&n>=0?n:1;
+  };
   for (const item of dados) {
-    const gtin=codigoLimpo(item.codigo);
-    const descricao=String(item.descricao??"").trim();
+    const gtin=codigoLimpo(item.codigo),descricao=String(item.descricao??"").trim();
     if (!gtin || gtin.length<8) continue;
     comCodigo++;
     if (descricao && !descricaoAusente(descricao)) comDescricao++;
     const dataValidade=interpretarDataValidade(item.validade);
     const validade=dataValidade?[dataValidade.getFullYear(),String(dataValidade.getMonth()+1).padStart(2,"0"),String(dataValidade.getDate()).padStart(2,"0")].join("-"):"";
-    const descFinal=descricao||"Produto sem descrição";
-    novosCatalogo.push({codigo:gtin,descricao:descFinal,validadeOrigem:validade});
-    if(validade){comValidade++;novosAcompanhamentos.push({barcode:gtin,descricao:descFinal,validade});}
+    const descFinal=descricao||"Produto sem descrição",quantidade=lerQuantidade(item.quantidade);
+    novosCatalogo.push({codigo:gtin,descricao:descFinal,validadeOrigem:validade,quantidade});
+    if(validade){comValidade++;novosAcompanhamentos.push({barcode:gtin,descricao:descFinal,validade,quantidade});}
     else semValidade++;
   }
   if(!comCodigo) throw new Error("Não encontrei códigos GTIN válidos no arquivo.");
   const chaveCatalogo=x=>[String(x.codigo||"").trim(),String(x.descricao||"").trim().toLowerCase(),String(x.validadeOrigem||"").trim()].join("|");
-  const existentes=new Set(catalogoBase.map(chaveCatalogo));
-  let adicionados=0,repetidos=0,descricoesAtualizadas=0;
+  const mapaCatalogo=new Map(catalogoBase.map(x=>[chaveCatalogo(x),x]));
+  let adicionados=0,repetidos=0,descricoesAtualizadas=0,quantidadesAtualizadas=0;
   for(const item of novosCatalogo){
-    const key=chaveCatalogo(item);
-    if(existentes.has(key)){repetidos++;continue;}
+    const key=chaveCatalogo(item),existente=mapaCatalogo.get(key);
+    if(existente){
+      repetidos++;
+      const maior=Math.max(lerQuantidade(existente.quantidade),item.quantidade);
+      if(maior>lerQuantidade(existente.quantidade)){existente.quantidade=maior;quantidadesAtualizadas++;}
+      continue;
+    }
     const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
-    if(pendente){pendente.descricao=item.descricao;pendente.id=window.idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
+    if(pendente){
+      pendente.descricao=item.descricao;
+      pendente.quantidade=Math.max(lerQuantidade(pendente.quantidade),item.quantidade);
+      pendente.id=window.idCatalogo(pendente);
+      mapaCatalogo.set(chaveCatalogo(pendente),pendente);
+      descricoesAtualizadas++;
+      continue;
+    }
     item.id=window.idCatalogo(item);
-    catalogoBase.push(item);existentes.add(key);adicionados++;
+    catalogoBase.push(item);mapaCatalogo.set(key,item);adicionados++;
   }
-  // Normaliza também registros antigos sem ID para que a sincronização seja estável.
   catalogoBase.forEach(item=>{if(!item.id)item.id=window.idCatalogo(item);});
-  let acompanhamentosNovos=0;
-  const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
+  let acompanhamentosNovos=0,quantidadesAcompanhamentoAtualizadas=0;
+  const chaveProduto=p=>[codigoLimpo(p.barcode||p.codigo),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|");
+  const mapaProdutos=new Map(produtos.map(p=>[chaveProduto(p),p]));
   for(const item of novosAcompanhamentos){
-    const key=[item.barcode,interpretarDataValidade(item.validade)?.getTime()||"",item.descricao.trim().toLowerCase()].join("|");
-    if(chavesProdutos.has(key))continue;
-    produtos.push({id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:1,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true});
-    chavesProdutos.add(key);acompanhamentosNovos++;
+    const key=chaveProduto(item),existente=mapaProdutos.get(key);
+    if(existente){
+      const maior=Math.max(lerQuantidade(existente.quantidade),item.quantidade);
+      if(maior>lerQuantidade(existente.quantidade)){existente.quantidade=maior;quantidadesAcompanhamentoAtualizadas++;}
+      continue;
+    }
+    const novo={id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:item.quantidade,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true};
+    produtos.push(novo);mapaProdutos.set(key,novo);acompanhamentosNovos++;
   }
   localStorage.setItem(CHAVE_BASE_CATALOGO,JSON.stringify(catalogoBase));
   try {
     if (!window.CheckProdutCloud?.isReady?.()) throw new Error("A conexão com a nuvem ainda não está pronta. Aguarde o status Nuvem conectada e tente importar novamente.");
     await window.CheckProdutCloud.saveCatalog(catalogoBase);
-    if(acompanhamentosNovos) await salvar();
+    if(acompanhamentosNovos||quantidadesAcompanhamentoAtualizadas) await salvar();
   } catch (erroNuvem) {
     console.error("Falha ao sincronizar banco importado:", erroNuvem);
     alert("O banco foi processado neste navegador, mas não foi possível confirmar o envio para a nuvem.\n\n" + (erroNuvem?.message || erroNuvem));
     throw erroNuvem;
   }
-  if(!acompanhamentosNovos) { renderizar(); }
-  else { renderizar(); }
+  renderizar();
   atualizarContadorBanco();renderizarTabelaBanco();atualizarListaFuncionarios();
-  alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
+  alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nQuantidades maiores atualizadas no catálogo: "+quantidadesAtualizadas+"\nQuantidades maiores atualizadas no acompanhamento: "+quantidadesAcompanhamentoAtualizadas+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
   if(event?.target)event.target.value="";
 }
-
 async function carregarRelatorioLoja(event) {
   const file=event.target.files?.[0];
   if(!file)return;
@@ -654,16 +680,17 @@ async function carregarRelatorioLoja(event) {
     const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
     const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
     const ehValidade=h=>/valid|venc|^dt\s|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
+    const ehQuantidade=h=>/quant|qtd|qtde|unidades/.test(h);
     const dados=[];
     for(const nomeAba of workbook.SheetNames){
       const rows=XLSX.utils.sheet_to_json(workbook.Sheets[nomeAba],{header:1,raw:true,defval:""});
       if(!rows.length)continue;
-      let headerIdx=-1,colGtin=-1,colDesc=-1,colVal=-1,score=-1;
+      let headerIdx=-1,colGtin=-1,colDesc=-1,colVal=-1,colQtd=-1,score=-1;
       for(let i=0;i<Math.min(rows.length,40);i++){
         const hs=(rows[i]||[]).map(norm);
-        const gi=hs.findIndex(ehCodigo),di=hs.findIndex(ehDescricao),vi=hs.findIndex(ehValidade);
-        const sc=(gi>=0?(ehGtin(hs[gi])?4:2):0)+(di>=0?2:0)+(vi>=0?4:0);
-        if(gi>=0&&di>=0&&vi>=0&&sc>score){headerIdx=i;colGtin=gi;colDesc=di;colVal=vi;score=sc;}
+        const gi=hs.findIndex(ehCodigo),di=hs.findIndex(ehDescricao),vi=hs.findIndex(ehValidade),qi=hs.findIndex(ehQuantidade);
+        const sc=(gi>=0?(ehGtin(hs[gi])?4:2):0)+(di>=0?2:0)+(vi>=0?4:0)+(qi>=0?1:0);
+        if(gi>=0&&di>=0&&vi>=0&&sc>score){headerIdx=i;colGtin=gi;colDesc=di;colVal=vi;colQtd=qi;score=sc;}
       }
       if(headerIdx<0)continue;
       for(let i=headerIdx+1;i<rows.length;i++){
@@ -678,7 +705,7 @@ async function carregarRelatorioLoja(event) {
           const formato=String(celulaValidade.z).toLowerCase().replace(/"[^"]*"/g,"");
           if(/[my]/.test(formato) && !/d/.test(formato)) validadeImportada=new Date(validadeImportada.getFullYear(),validadeImportada.getMonth()+1,0);
         }
-        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:validadeImportada});
+        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:validadeImportada,quantidade:colQtd>=0?row[colQtd]:1});
       }
     }
     await gravarImportacao(dados,"Excel/CSV",event);
@@ -708,17 +735,18 @@ async function importarTextoColado() {
   const ehGtin=h=>/\\b(gtin|ean)\\b/.test(h)||/codigo.*barra|cod.*barra|barras/.test(h);
   const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
   const ehValidade=h=>/valid|venc|data.*(val|venc)/.test(h);
+  const ehQuantidade=h=>/quant|qtd|qtde|unidades/.test(h);
   const separar=linha=>linha.includes("\\t")?linha.split("\\t"):linha.split(/\\s*;\\s*/);
   const matriz=linhas.map(separar);
-  let dados=[],cabecalho=-1,colGtin=-1,colDesc=-1,colVal=-1;
+  let dados=[],cabecalho=-1,colGtin=-1,colDesc=-1,colVal=-1,colQtd=-1;
   for(let i=0;i<Math.min(matriz.length,40);i++){
-    const h=matriz[i].map(norm),g=h.findIndex(ehGtin),d=h.findIndex(ehDescricao),v=h.findIndex(ehValidade);
-    if(g>=0&&d>=0&&v>=0){cabecalho=i;colGtin=g;colDesc=d;colVal=v;break;}
+    const h=matriz[i].map(norm),g=h.findIndex(ehGtin),d=h.findIndex(ehDescricao),v=h.findIndex(ehValidade),q=h.findIndex(ehQuantidade);
+    if(g>=0&&d>=0&&v>=0){cabecalho=i;colGtin=g;colDesc=d;colVal=v;colQtd=q;break;}
   }
   if(cabecalho>=0){
     for(let i=cabecalho+1;i<matriz.length;i++){
       const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\\.0$/,"").replace(/\\D/g,"");
-      if(/^\\d{8,14}$/.test(gtin))dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+      if(/^\\d{8,14}$/.test(gtin))dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal],quantidade:colQtd>=0?row[colQtd]:1});
     }
   } else {
     // Relatórios copiados de PDF/Excel às vezes quebram um GTIN em várias linhas e perdem os cabeçalhos.
@@ -1998,9 +2026,10 @@ async function startCloud(user) {
     window.interpretarDataValidade?.(item.validade)?.getTime() || "",
     String(item.descricao || "").trim().toLowerCase()
   ].join("|");
-  const acompanhamentosExistentes = new Set(cloudP.map(chaveAcompanhamento));
+  const acompanhamentosExistentes = new Map(cloudP.map(p=>[chaveAcompanhamento(p),p]));
   let idNovoAcompanhamento = Date.now();
   let novosAcompanhamentosBanco = 0;
+  let quantidadesBancoAtualizadas = 0;
   for (const item of cloudC) {
     const codigo = String(item.codigo || "").trim().replace(/\D/g,"");
     const data = window.interpretarDataValidade?.(item.validadeOrigem);
@@ -2012,7 +2041,7 @@ async function startCloud(user) {
       descricao: String(item.descricao || "Produto sem descrição"),
       peso: "",
       setor: "Outros",
-      quantidade: 1,
+      quantidade: Math.max(0,Number(item.quantidade)||1),
       validade,
       especie: "Geral",
       funcionario: "Importação do banco de dados",
@@ -2020,15 +2049,20 @@ async function startCloud(user) {
       origemImportacao: true
     };
     const chave = chaveAcompanhamento(acompanhamento);
-    if (acompanhamentosExistentes.has(chave)) continue;
+    const produtoExistente=acompanhamentosExistentes.get(chave);
+    if (produtoExistente) {
+      const maior=Math.max(Number(produtoExistente.quantidade)||1,acompanhamento.quantidade);
+      if(maior>(Number(produtoExistente.quantidade)||1)){produtoExistente.quantidade=maior;quantidadesBancoAtualizadas++;}
+      continue;
+    }
     cloudP.push(acompanhamento);
-    acompanhamentosExistentes.add(chave);
+    acompanhamentosExistentes.set(chave,acompanhamento);
     novosAcompanhamentosBanco++;
   }
   window.aplicarDadosDaNuvem(cloudP,cloudC);
   ready=true;
-  if (novosAcompanhamentosBanco) {
-    status.textContent="Incluindo "+novosAcompanhamentosBanco+" produtos do banco no acompanhamento...";
+  if (novosAcompanhamentosBanco || quantidadesBancoAtualizadas) {
+    status.textContent="Sincronizando "+novosAcompanhamentosBanco+" novos produtos e "+quantidadesBancoAtualizadas+" atualizações de quantidade...";
     // Grava somente na coleção de acompanhamento já utilizada pelo sistema.
     await window.CheckProdutCloud.saveProducts(cloudP);
   }
