@@ -1227,6 +1227,8 @@ function diasRestantes(dataStr) {
 function situacao(p) {
   const dias=diasRestantes(p.validade);
   if(dias===null)return {texto:"Validade não reconhecida",classe:"warn",faixa:0};
+  if(dias<0)return {texto:"Vencido · retirar da prateleira",classe:"urgent",faixa:0};
+  if(dias<=10)return {texto:"Retirar da prateleira",classe:"urgent",faixa:0};
   if(dias<=90)return {texto:"Desconto de 30%",classe:"urgent",faixa:30};
   if(dias<=120)return {texto:"Desconto de 15%",classe:"warn",faixa:15};
   return {texto:"Acompanhamento",classe:"ok",faixa:0};
@@ -1942,8 +1944,48 @@ async function startCloud(user) {
     }
   }
   localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
+  // Converte para acompanhamento os itens do catálogo com validade que ainda
+  // não possuem registro em produtos. O catálogo original permanece intacto;
+  // os novos acompanhamentos são gravados na coleção já existente de produtos.
+  const chaveAcompanhamento = item => [
+    String(item.barcode || "").trim().replace(/\\D/g,""),
+    window.interpretarDataValidade?.(item.validade)?.getTime() || "",
+    String(item.descricao || "").trim().toLowerCase()
+  ].join("|");
+  const acompanhamentosExistentes = new Set(cloudP.map(chaveAcompanhamento));
+  let idNovoAcompanhamento = Date.now();
+  let novosAcompanhamentosBanco = 0;
+  for (const item of cloudC) {
+    const codigo = String(item.codigo || "").trim().replace(/\\D/g,"");
+    const data = window.interpretarDataValidade?.(item.validadeOrigem);
+    if (!codigo || codigo.length < 8 || !data) continue;
+    const validade = [data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-");
+    const acompanhamento = {
+      id: idNovoAcompanhamento++,
+      barcode: codigo,
+      descricao: String(item.descricao || "Produto sem descrição"),
+      peso: "",
+      setor: "Outros",
+      quantidade: 1,
+      validade,
+      especie: "Geral",
+      funcionario: "Importação do banco de dados",
+      etiquetaAtualizada: false,
+      origemImportacao: true
+    };
+    const chave = chaveAcompanhamento(acompanhamento);
+    if (acompanhamentosExistentes.has(chave)) continue;
+    cloudP.push(acompanhamento);
+    acompanhamentosExistentes.add(chave);
+    novosAcompanhamentosBanco++;
+  }
   window.aplicarDadosDaNuvem(cloudP,cloudC);
   ready=true;
+  if (novosAcompanhamentosBanco) {
+    status.textContent="Incluindo "+novosAcompanhamentosBanco+" produtos do banco no acompanhamento...";
+    // Grava somente na coleção de acompanhamento já utilizada pelo sistema.
+    await window.CheckProdutCloud.saveProducts(cloudP);
+  }
   stopProducts=onSnapshot(productsRef,snap=>{
     const rows=snap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
     window.aplicarDadosDaNuvem(rows,null);
