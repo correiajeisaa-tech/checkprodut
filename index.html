@@ -510,10 +510,11 @@ window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
   if (Array.isArray(novoCatalogo) && modalBanco?.style.display === "flex") renderizarTabelaBanco();
 };
 
-async function salvar() {
+async function salvar(sincronizarNuvem=true) {
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
   renderizar();
   atualizarListaFuncionarios();
+  if(!sincronizarNuvem) return;
   try {
     if(!window.CheckProdutCloud?.isReady()) throw new Error("Nuvem ainda não conectada.");
     await window.CheckProdutCloud.saveProducts(produtos);
@@ -1442,7 +1443,14 @@ async function marcarRetiradaLote(){
   const agora=new Date().toISOString();
   selecionados.forEach(p=>{p.retiradoVenda=true;p.dataRetiradaVenda=agora;p.funcionarioRetirada=nome;});
   retiradasSelecionadas.clear();
-  await salvar();
+  await salvar(false);
+  try {
+    await window.CheckProdutCloud?.saveRemovalStatus(selecionados);
+  } catch(err) {
+    console.error("Falha ao sincronizar retirada dos produtos:",err);
+    alert("A retirada ficou registrada neste aparelho, mas não foi sincronizada com a nuvem: "+(err?.message||err));
+    throw err;
+  }
   atualizarResumoPainel();
   alert(selecionados.length+" produto(s) marcado(s) como retirado(s) da prateleira.");
 }
@@ -1478,7 +1486,10 @@ function exportarResumoPainel() {
 async function marcarRetirada(id) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
   const resp=prompt("Nome do funcionário que retirou o produto da área de venda:",p.funcionario||"");if(!resp||!resp.trim())return;
-  p.retiradoVenda=true;p.dataRetiradaVenda=new Date().toISOString();p.funcionarioRetirada=resp.trim();await salvar();
+  p.retiradoVenda=true;p.dataRetiradaVenda=new Date().toISOString();p.funcionarioRetirada=resp.trim();
+  await salvar(false);
+  try { await window.CheckProdutCloud?.saveRemovalStatus([p]); }
+  catch(err) { alert("A retirada ficou registrada neste aparelho, mas não foi sincronizada com a nuvem: "+(err?.message||err)); throw err; }
 }
 async function marcarNaoEncontrado(id) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
@@ -2022,6 +2033,18 @@ async function startCloud(user) {
   status.textContent="Nuvem conectada · "+cloudC.length+" itens no catálogo · sincronização ativa";
 }
 window.CheckProdutCloud = {
+  saveRemovalStatus: async rows => {
+    if(!ready) throw new Error("Nuvem ainda não conectada; a retirada não foi enviada.");
+    for(let inicio=0;inicio<rows.length;inicio+=400) {
+      const batch=writeBatch(firestoreDb);
+      rows.slice(inicio,inicio+400).forEach(item=>batch.set(
+        doc(firestoreDb,"checkprodut_produtos",String(item.id)),
+        {id:item.id,retiradoVenda:true,dataRetiradaVenda:item.dataRetiradaVenda,funcionarioRetirada:item.funcionarioRetirada},
+        {merge:true}
+      ));
+      await batch.commit();
+    }
+  },
   saveProducts: async rows => {
     if(!ready) throw new Error("Nuvem ainda não conectada; nenhum produto foi enviado.");
     // Firestore limita cada WriteBatch a 500 operações.
