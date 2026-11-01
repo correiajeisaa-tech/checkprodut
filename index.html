@@ -312,16 +312,6 @@
           <span class="subtitle">Lista de produtos</span>
           <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
         </div>
-    <div class="tabs-setores" id="tabsSetores">
-      <div class="tab-item active" onclick="filtrarSetor('TODOS', this)">Todos</div>
-      <div class="tab-item" onclick="filtrarSetor('Rações Dry', this)">Rações Dry</div>
-      <div class="tab-item" onclick="filtrarSetor('Rações Úmidas', this)">Rações Úmidas</div>
-      <div class="tab-item" onclick="filtrarSetor('Higiene e Limpeza', this)">Higiene/Limpeza</div>
-      <div class="tab-item" onclick="filtrarSetor('Farmácia e Medicamentos', this)">Farmácia</div>
-      <div class="tab-item" onclick="filtrarSetor('Acessórios e Brinquedos', this)">Acessórios</div>
-      <div class="tab-item" onclick="filtrarSetor('Outros', this)">Outros</div>
-    </div>
-
     <div class="filter-row">
       <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
       <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
