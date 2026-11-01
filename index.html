@@ -1545,7 +1545,7 @@ onAuthStateChanged(auth,async user=>{
   if(!allowed[email]) { await signOut(auth); setMessage("Este e-mail não está autorizado para acessar o CheckProdut."); return; }
   role=allowed[email]; applyRole(); gate.style.display="none"; status.textContent="Conectando à nuvem...";
   try { await startCloud(user); }
-  catch(err) { console.error("Firebase CheckProdut:",err); status.textContent="Falha na conexão com a nuvem"; gate.style.display="flex"; setMessage("Não foi possível acessar o banco. Confira se Authentication e Firestore estão ativados e se as regras foram publicadas."); }
+  catch(err) { console.error("Firebase CheckProdut:",err); status.textContent="Falha na conexão com a nuvem"; gate.style.display="flex"; const codigo=err?.code||"sem-codigo"; const detalhe=err?.message||String(err); setMessage("Falha ao conectar ao banco ("+codigo+"): "+detalhe); }
 });
 </script>
 
