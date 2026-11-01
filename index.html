@@ -333,7 +333,7 @@
         <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
         <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Pássaros</option><option>Areia</option><option>Petiscos Secos</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
         <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
-        <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de vencimentos · 30 dias</button>
+        <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de retiradas · 30 dias</button>
         <div class="subtitle" style="grid-column:1/-1;padding:4px 2px;font-weight:700;">Produtos cadastrados no banco de dados: <strong id="total">0</strong></div>
       </div>
     </details>
@@ -392,6 +392,23 @@
         <tbody id="listaBancoModal"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- HISTÓRICO DE RETIRADAS: últimos 30 dias -->
+<div class="modal" id="modalHistoricoRetiradas">
+  <div class="modal-content" style="max-width:1050px;">
+    <div class="modal-head">
+      <div><h4>Histórico de produtos retirados da prateleira</h4><small class="subtitle">Registros dos últimos 30 dias, com funcionário e data da retirada.</small></div>
+      <button type="button" class="outline icon-btn" onclick="fecharHistoricoRetiradas()">✕</button>
+    </div>
+    <div class="table-wrap">
+      <table style="min-width:850px;">
+        <thead><tr><th>Produto</th><th>GTIN</th><th>Validade</th><th>Setor</th><th>Responsável pela retirada</th><th>Data da retirada</th></tr></thead>
+        <tbody id="listaHistoricoRetiradas"></tbody>
+      </table>
+    </div>
+    <div class="form-actions"><button type="button" class="primary" onclick="fecharHistoricoRetiradas()">Fechar</button></div>
   </div>
 </div>
 
@@ -617,7 +634,7 @@ async function carregarRelatorioLoja(event) {
       return;
     }
     if(!["xlsx","xls","csv"].includes(ext))throw new Error("Formato não suportado. Use Excel, CSV ou PDF.");
-    const workbook=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array",cellDates:true});
+    const workbook=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:"array",cellDates:true,cellNF:true});
     const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
     const ehGtin=h=>/gtin|ean/.test(h);
     const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras|^codigo$|^cod$/.test(h);
@@ -639,7 +656,15 @@ async function carregarRelatorioLoja(event) {
         const row=rows[i]||[];
         const gtin=String(row[colGtin]??"").trim().replace(/\.0$/,"").replace(/\D/g,"");
         if(!gtin||gtin.length<8)continue;
-        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+        let validadeImportada=row[colVal];
+        // Se a célula Excel estiver formatada apenas como mês/ano, considerar o último dia do mês.
+        const enderecoValidade=XLSX.utils.encode_cell({r:i,c:colVal});
+        const celulaValidade=workbook.Sheets[nomeAba][enderecoValidade];
+        if(validadeImportada instanceof Date && celulaValidade?.z) {
+          const formato=String(celulaValidade.z).toLowerCase().replace(/"[^"]*"/g,"");
+          if(/[my]/.test(formato) && !/d/.test(formato)) validadeImportada=new Date(validadeImportada.getFullYear(),validadeImportada.getMonth()+1,0);
+        }
+        dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:validadeImportada});
       }
     }
     await gravarImportacao(dados,"Excel/CSV",event);
@@ -1152,6 +1177,18 @@ function interpretarDataValidade(dataStr) {
       return new Date(excel.getUTCFullYear(), excel.getUTCMonth(), excel.getUTCDate());
     }
   }
+  // Validades informadas somente por mês/ano vencem no último dia do mês.
+  const mesesTexto = {jan:1,janeiro:1,fev:2,fevereiro:2,mar:3,marco:3,abr:4,abril:4,mai:5,maio:5,jun:6,junho:6,jul:7,julho:7,ago:8,agosto:8,set:9,setembro:9,out:10,outubro:10,nov:11,novembro:11,dez:12,dezembro:12};
+  const normalizado = valor.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  const mesAnoTexto = normalizado.match(/^(jan|janeiro|fev|fevereiro|mar|marco|abr|abril|mai|maio|jun|junho|jul|julho|ago|agosto|set|setembro|out|outubro|nov|novembro|dez|dezembro)[\s./-]*(?:de[\s]*)?(20\d{2}|\d{2})$/);
+  const mesAnoNumero = normalizado.match(/^(0?[1-9]|1[0-2])[\s./-](20\d{2}|\d{2})$/);
+  if (mesAnoTexto || mesAnoNumero) {
+    const m = mesAnoTexto ? mesesTexto[mesAnoTexto[1]] : Number(mesAnoNumero[1]);
+    let a = Number(mesAnoTexto ? mesAnoTexto[2] : mesAnoNumero[2]);
+    if (a < 100) a += a < 50 ? 2000 : 1900;
+    if (a >= 2000 && a <= 2100) return new Date(a, m, 0);
+  }
+
   let ano, mes, dia;
   let partes = valor.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/);
   if (partes) {
@@ -1276,7 +1313,7 @@ function renderizar() {
     const matchFunc = (!funcFiltro || p.funcionario === funcFiltro || p.funcionarioTroca === funcFiltro || p.funcionarioRetirada === funcFiltro);
     const faixa = situacao(p).faixa;
     const matchPainel = filtroPainelAtual === "TODOS" || (filtroPainelAtual === "ATUALIZADAS" ? !!p.etiquetaAtualizada : faixa === filtroPainelAtual && !p.etiquetaAtualizada);
-    const matchSituacao = !situacaoFiltro || (situacaoFiltro === "VENCIDOS" && dias < 0) || (situacaoFiltro === "RETIRAR" && dias !== null && dias >= 0 && dias <= 10 && !p.retiradoVenda) || (situacaoFiltro === "RETIRADOS" && !!p.retiradoVenda) || (situacaoFiltro === "PENDENTE" && faixa > 0 && !p.etiquetaAtualizada);
+    const matchSituacao = !situacaoFiltro || (situacaoFiltro === "VENCIDOS" && dias < 0) || (situacaoFiltro === "RETIRAR" && dias !== null && dias <= 10 && !p.retiradoVenda) || (situacaoFiltro === "RETIRADOS" && !!p.retiradoVenda) || (situacaoFiltro === "PENDENTE" && faixa > 0 && !p.etiquetaAtualizada);
     return matchBusca && matchSetor && matchFunc && matchPainel && matchSituacao;
   });
 
@@ -1296,8 +1333,8 @@ function renderizar() {
   filtrados.forEach(p => {
     const dias = diasRestantes(p.validade);
     const s = situacao(p);
-    const avisoRetirada = dias !== null && dias >= 0 && dias <= 10 && !p.retiradoVenda;
-    const statusTag = dias < 0 ? `<span class="tag urgent">VENCIDO · RETIRAR</span>` : p.retiradoVenda ? `<span class="tag done">Retirado da área de venda</span>` : avisoRetirada ? `<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias} dia(s)</span>` : p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
+    const avisoRetirada = dias !== null && dias <= 10 && !p.retiradoVenda;
+    const statusTag = p.retiradoVenda ? `<span class="tag done">Retirado da área de venda</span>` : dias < 0 ? `<span class="tag urgent">VENCIDO · RETIRAR</span>` : avisoRetirada ? `<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias} dia(s)</span>` : p.etiquetaAtualizada ? `<span class="tag done">Etiqueta Alterada</span>` : `<span class="tag ${s.classe}">${s.texto}</span>`;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -1312,7 +1349,7 @@ function renderizar() {
       <td>
         <div class="actions">
           ${s.faixa > 0 && !p.etiquetaAtualizada && dias >= 0 ? `<button type="button" class="primary" onclick="marcarAtualizada(${p.id})">Trocar etiqueta ${s.faixa}%</button>` : p.etiquetaAtualizada ? `<button type="button" class="secondary" onclick="marcarAtualizada(${p.id})">Desfazer troca</button>` : ""}
-          ${dias !== null && dias >= 0 && dias <= 10 ? `<button type="button" class="danger" onclick="marcarRetirada(${p.id})">${p.retiradoVenda ? "Retirada confirmada" : "Retirado da área de venda"}</button>` : ""}
+          ${dias !== null && dias <= 10 && !p.retiradoVenda ? `<button type="button" class="danger" onclick="marcarRetirada(${p.id})">Já retirei da prateleira</button>` : ""}
           <button type="button" class="danger master-only" onclick="excluir(${p.id})">✕</button>
         </div>
       </td>
@@ -1340,7 +1377,7 @@ function atualizarResumoPainel() {
   if(!painel)return;
   if(!painelResumoAberto){painel.hidden=true;return;}
   const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",RETIRAR:"Produtos perto de vencer · retirar da prateleira",ATUALIZADAS:"Etiquetas conferidas / atualizadas"};
-  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)>=0&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda):painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
   document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
   const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
@@ -1398,11 +1435,25 @@ function marcarRetirada(id) {
   p.retiradoVenda=true; p.dataRetiradaVenda=new Date().toISOString(); p.funcionarioRetirada=resp.trim(); salvar();
 }
 function abrirHistoricoVencimentos() {
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
-  const limite=new Date(hoje); limite.setDate(limite.getDate()-30);
-  const itens=produtos.filter(p=>{const d=interpretarDataValidade(p.validade);return d && d<hoje && d>=limite;});
-  const linhas=itens.map(p=>p.descricao+" | GTIN "+p.barcode+" | Validade "+formatarData(p.validade)+" | "+p.setor+" | "+(p.retiradoVenda?"Retirado da venda":"Retirada não confirmada")).join("\n");
-  alert("HISTÓRICO — PRODUTOS QUE VENCERAM NOS ÚLTIMOS 30 DIAS\n\n"+(linhas||"Nenhum produto venceu nesse período."));
+  const agora=Date.now(), limite=agora-30*86400000;
+  const itens=produtos.filter(p=>{
+    const retirada=p.dataRetiradaVenda ? new Date(p.dataRetiradaVenda).getTime() : NaN;
+    return p.retiradoVenda && Number.isFinite(retirada) && retirada>=limite && retirada<=agora;
+  }).sort((a,b)=>new Date(b.dataRetiradaVenda)-new Date(a.dataRetiradaVenda));
+  const corpo=document.getElementById("listaHistoricoRetiradas");
+  corpo.innerHTML="";
+  if(!itens.length) corpo.innerHTML='<tr><td colspan="6" class="empty">Nenhuma retirada registrada nos últimos 30 dias.</td></tr>';
+  else itens.forEach(p=>{
+    const tr=document.createElement("tr");
+    [p.descricao||"Produto sem descrição",p.barcode||"—",formatarData(p.validade),p.setor||"—",p.funcionarioRetirada||"—",new Date(p.dataRetiradaVenda).toLocaleString("pt-BR")].forEach(v=>{
+      const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
+    });
+    corpo.appendChild(tr);
+  });
+  document.getElementById("modalHistoricoRetiradas").style.display="flex";
+}
+function fecharHistoricoRetiradas() {
+  document.getElementById("modalHistoricoRetiradas").style.display="none";
 }
 
 function marcarAtualizada(id) {
