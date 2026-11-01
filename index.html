@@ -480,9 +480,10 @@ window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
 
 function salvar() {
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
-  window.CheckProdutCloud?.saveProducts(produtos);
+  const sincronizacao = window.CheckProdutCloud?.saveProducts(produtos);
   renderizar();
   atualizarListaFuncionarios();
+  return sincronizacao;
 }
 
 // IMPORTAÇÃO: Excel, CSV e PDF com texto selecionável.
