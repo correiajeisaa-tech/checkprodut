@@ -1773,8 +1773,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // Mesmo transporte estável usado no ScanCheck: long polling ajuda em redes e navegadores que bloqueiam WebChannel.
-const db = initializeFirestore(app, { experimentalForceLongPolling: true });
-window.db = db; // Disponibiliza a mesma instância para rotinas legadas executadas fora deste módulo.
+const firestoreDb = initializeFirestore(app, { experimentalForceLongPolling: true });
 const allowed = {
   "correiajeisaa@gmail.com": "MASTER",
   "petcamp.novaodessa@gmail.com": "STORE"
@@ -1810,15 +1809,15 @@ async function seedCollection(name, localItems, remoteDocs) {
   }
   const pendentes = [...remote.entries()].filter(([key]) => !remoteDocs.some(d => String(d.id) === key));
   for (let inicio=0; inicio<pendentes.length; inicio+=400) {
-    const batch = writeBatch(db);
-    pendentes.slice(inicio,inicio+400).forEach(([key,item]) => batch.set(doc(collection(db,name),key),item));
+    const batch = writeBatch(firestoreDb);
+    pendentes.slice(inicio,inicio+400).forEach(([key,item]) => batch.set(doc(collection(firestoreDb,name),key),item));
     await batch.commit();
   }
   return [...remote.values()];
 }
 async function startCloud(user) {
-  const productsRef=collection(db,"checkprodut_produtos");
-  const catalogRef=collection(db,"checkprodut_catalogo");
+  const productsRef=collection(firestoreDb,"checkprodut_produtos");
+  const catalogRef=collection(firestoreDb,"checkprodut_catalogo");
   const [pSnap,cSnap]=await Promise.all([getDocs(productsRef),getDocs(catalogRef)]);
   const localP=JSON.parse(localStorage.getItem("checkprodut_produtos_v8")||"[]");
   const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
@@ -1849,8 +1848,8 @@ window.CheckProdutCloud = {
     if(!ready) throw new Error("Nuvem ainda não conectada; nenhum produto foi enviado.");
     // Firestore limita cada WriteBatch a 500 operações.
     for(let inicio=0;inicio<rows.length;inicio+=400) {
-      const batch=writeBatch(db);
-      rows.slice(inicio,inicio+400).forEach(item=>batch.set(doc(db,"checkprodut_produtos",String(item.id)),item));
+      const batch=writeBatch(firestoreDb);
+      rows.slice(inicio,inicio+400).forEach(item=>batch.set(doc(firestoreDb,"checkprodut_produtos",String(item.id)),item));
       await batch.commit();
     }
   },
@@ -1861,29 +1860,29 @@ window.CheckProdutCloud = {
     // grandes em blocos menores para que a atualização não falhe.
     const tamanhoLote = 400;
     for (let inicio = 0; inicio < rows.length; inicio += tamanhoLote) {
-      const batch = writeBatch(db);
+      const batch = writeBatch(firestoreDb);
       rows.slice(inicio, inicio + tamanhoLote).forEach((item, indice) => {
         const codigo = String(item.codigo || "sem-codigo").replace(/[^a-zA-Z0-9_-]/g, "_");
         const validade = String(item.validadeOrigem || "sem-validade").replace(/[^a-zA-Z0-9_-]/g, "_");
         const chave = String(item.id || (codigo + "__" + validade + "__" + inicio + "_" + indice));
-        batch.set(doc(db, "checkprodut_catalogo", chave), { ...item, id: chave });
+        batch.set(doc(firestoreDb, "checkprodut_catalogo", chave), { ...item, id: chave });
       });
       await batch.commit();
     }
   },
   deleteProduct: async id => {
     if(!ready) throw new Error("Nuvem ainda não conectada; a exclusão não foi enviada.");
-    await deleteDoc(doc(db,"checkprodut_produtos",String(id)));
+    await deleteDoc(doc(firestoreDb,"checkprodut_produtos",String(id)));
   },
   clearCatalog: async () => {
     if(!ready || role!=="MASTER") throw new Error("Somente o acesso MASTER pode apagar o catálogo.");
-    const ref=collection(db,"checkprodut_catalogo");
+    const ref=collection(firestoreDb,"checkprodut_catalogo");
     let removidos=0;
     while(true) {
       const snap=await getDocs(ref);
       if(snap.empty) break;
       for(let inicio=0;inicio<snap.docs.length;inicio+=400) {
-        const batch=writeBatch(db);
+        const batch=writeBatch(firestoreDb);
         snap.docs.slice(inicio,inicio+400).forEach(d=>batch.delete(d.ref));
         await batch.commit();
         removidos+=Math.min(400,snap.docs.length-inicio);
