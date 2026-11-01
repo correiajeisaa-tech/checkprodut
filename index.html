@@ -395,6 +395,7 @@
             <th>Código / GTIN</th>
             <th>Descrição do Produto</th>
             <th>Validade na Planilha</th>
+            <th>Quantidade</th>
             <th>Revisão</th>
           </tr>
         </thead>
@@ -1104,7 +1105,7 @@ function renderizarTabelaBanco() {
   });
   tbody.innerHTML = "";
   if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Nenhum item encontrado no banco de dados.</td></tr>`;
     return;
   }
   filtrados.forEach(item => {
@@ -1118,6 +1119,8 @@ function renderizarTabelaBanco() {
     tdDescricao.textContent = item.descricao || "Produto sem descrição";
     const tdValidade = document.createElement("td");
     tdValidade.textContent = item.validadeOrigem ? formatarData(item.validadeOrigem) : "Não informada";
+    const tdQuantidade = document.createElement("td");
+    tdQuantidade.textContent = String(Number(item.quantidade)||1);
     const tdAcao = document.createElement("td");
     const editar = document.createElement("button");
     editar.type = "button";
@@ -1125,7 +1128,7 @@ function renderizarTabelaBanco() {
     editar.textContent = "✏️ Editar";
     editar.onclick = () => editarDescricaoCatalogo(item.codigo);
     tdAcao.appendChild(editar);
-    tr.append(tdCodigo,tdDescricao,tdValidade,tdAcao);
+    tr.append(tdCodigo,tdDescricao,tdValidade,tdQuantidade,tdAcao);
     tbody.appendChild(tr);
   });
 }
