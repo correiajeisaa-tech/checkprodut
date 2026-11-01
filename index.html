@@ -1403,7 +1403,7 @@ function atualizarResumoPainel() {
       cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(p);else retiradasSelecionadas.delete(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
       item.addEventListener("pointerdown",e=>{if(e.button!==0)return;arrastandoRetiradaLote=true;arrastouRetiradaLote=false;});
       item.addEventListener("pointerenter",()=>{if(!arrastandoRetiradaLote)return;arrastouRetiradaLote=true;retiradasSelecionadas.add(p);cb.checked=true;atualizarVisualSelecao();atualizarContadorRetiradaLote();});
-      item.addEventListener("click",e=>{if(arrastouRetiradaLote){arrastouRetiradaLote=false;e.preventDefault();return;}if(e.target.closest("input,label"))return;if(retiradasSelecionadas.has(p))retiradasSelecionadas.delete(p);else retiradasSelecionadas.add(p);cb.checked=retiradasSelecionadas.has(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
+      item.addEventListener("click",e=>{if(arrastouRetiradaLote){arrastouRetiradaLote=false;e.preventDefault();return;}if(e.target.closest("input,label,button"))return;if(retiradasSelecionadas.has(p))retiradasSelecionadas.delete(p);else retiradasSelecionadas.add(p);cb.checked=retiradasSelecionadas.has(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
       const txt=document.createElement("span");txt.textContent="Selecionar para retirada em lote";linha.append(cb,txt);item.appendChild(linha);
       atualizarVisualSelecao();
     }
@@ -1413,7 +1413,16 @@ function atualizarResumoPainel() {
     const qtd=document.createElement("span");qtd.textContent="Qtd.: "+(p.quantidade??1);
     const val=document.createElement("span");val.textContent="Validade: "+formatarData(p.validade);
     const dias=document.createElement("span");dias.textContent="Dias: "+diasRestantes(p.validade);
-    meta.append(qtd,val,dias);item.append(nome,cod,meta);lista.appendChild(item);
+    meta.append(qtd,val,dias);item.append(nome,cod,meta);
+    if(painelResumoTipo==="RETIRAR"){
+      const acoes=document.createElement("div");acoes.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;";
+      const btnRetirado=document.createElement("button");btnRetirado.type="button";btnRetirado.className="danger";btnRetirado.textContent="Já retirei da prateleira";
+      btnRetirado.addEventListener("pointerdown",e=>e.stopPropagation());btnRetirado.addEventListener("click",e=>{e.stopPropagation();marcarRetirada(p.id);});
+      const btnNaoAchei=document.createElement("button");btnNaoAchei.type="button";btnNaoAchei.className="outline";btnNaoAchei.textContent="Não achei";
+      btnNaoAchei.addEventListener("pointerdown",e=>e.stopPropagation());btnNaoAchei.addEventListener("click",e=>{e.stopPropagation();marcarNaoEncontrado(p.id);});
+      acoes.append(btnRetirado,btnNaoAchei);item.appendChild(acoes);
+    }
+    lista.appendChild(item);
   });
   atualizarContadorRetiradaLote();painel.hidden=false;
 }
@@ -1490,12 +1499,17 @@ async function marcarRetirada(id) {
   await salvar(false);
   try { await window.CheckProdutCloud?.saveRemovalStatus([p]); }
   catch(err) { alert("A retirada ficou registrada neste aparelho, mas não foi sincronizada com a nuvem: "+(err?.message||err)); throw err; }
+  retiradasSelecionadas.delete(p);
+  atualizarResumoPainel();
 }
 async function marcarNaoEncontrado(id) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
   const resp=prompt("Nome do funcionário que procurou e não encontrou o produto:",p.funcionario||"");if(!resp||!resp.trim())return;
   p.naoEncontrado=true;p.dataNaoEncontrado=new Date().toISOString();p.funcionarioNaoEncontrado=resp.trim();
-  await salvar();alert("Produto movido para a pasta 'Não achei · provável venda / local não visível'.");
+  await salvar();
+  retiradasSelecionadas.delete(p);
+  atualizarResumoPainel();
+  alert("Produto movido para a pasta 'Não achei · provável venda / local não visível'.");
 }
 async function marcarDescontoSolicitado(id,faixa) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||situacao(p).faixa!==Number(faixa)||!precisaSolicitarDesconto(p))return;
