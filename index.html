@@ -72,7 +72,7 @@
     .card:focus-visible,.card:hover { outline:2px solid var(--cyan); transform:translateY(-2px); }
     .card.active-filter { border:2px solid var(--cyan); }
     .filter-row { display:grid; grid-template-columns:2fr 1fr 1fr; gap:8px; margin-bottom:12px; }
-    @media(max-width:650px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card{padding:13px;min-height:96px}.number{font-size:25px}.filter-row{grid-template-columns:1fr 1fr}.filter-row input{grid-column:1/-1}}
+    @media(max-width:650px){.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card{padding:13px;min-height:96px}.number{font-size:25px}.filter-row{grid-template-columns:1fr 1fr}.filter-row input{grid-column:1/-1}.tabs-setores{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tab-item{min-height:54px;font-size:12px}}
     .card { background:white; padding:16px; border:1px solid var(--border); border-radius:12px; }
     .card small { color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; }
     .number { font-size:28px; font-weight:800; margin-top:6px; line-height:1; }
@@ -90,8 +90,8 @@
     .input-with-btn input { flex:1; }
     .icon-btn { padding:0 12px; height:39px; font-size:15px; }
     .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
-    .tabs-setores { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; }
-    .tab-item { padding:6px 12px; border-radius:18px; background:#eef3ef; font-size:11px; font-weight:700; color:var(--muted); cursor:pointer; white-space:nowrap; }
+    .tabs-setores { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+    .tab-item { display:flex; align-items:center; justify-content:center; text-align:center; min-height:48px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#eef3ef; font-size:11px; line-height:1.2; font-weight:700; color:var(--muted); cursor:pointer; white-space:normal; }
     .tab-item.active { background:var(--green); color:white; }
     .code-badge { font-family: monospace; font-size: 12px; font-weight: 700; background: #eef3ef; padding: 3px 6px; border-radius: 4px; color: #1e3a2b; border: 1px solid #d4dfd7; }
     .table-wrap { overflow-x:auto; }
@@ -162,7 +162,6 @@
       📥 Carregar Relatório da Loja (Excel, CSV ou PDF)
       <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv, .pdf" style="display:none;" onchange="carregarRelatorioLoja(event)">
     </label>
-    <button type="button" class="secondary" onclick="document.getElementById('textoImportacao').scrollIntoView({behavior:'smooth'});document.getElementById('textoImportacao').focus();">📋 Colar relatório</button>
   </div>
 </header>
 
