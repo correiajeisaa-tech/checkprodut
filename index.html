@@ -1760,7 +1760,7 @@ atualizarListaFuncionarios();
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDocs, writeBatch, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+import { initializeFirestore, collection, doc, getDocs, writeBatch, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAXqTaRsAZ3FB3-GgiFMCiASsX2dntcL-w",
@@ -1772,7 +1772,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Mesmo transporte estável usado no ScanCheck: long polling ajuda em redes e navegadores que bloqueiam WebChannel.\nconst db = initializeFirestore(app, { experimentalForceLongPolling: true });
 const allowed = {
   "correiajeisaa@gmail.com": "MASTER",
   "petcamp.novaodessa@gmail.com": "STORE"
