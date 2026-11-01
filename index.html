@@ -405,6 +405,7 @@ let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
 let setorFiltroAtual = "TODOS";
 let filtroPainelAtual = "TODOS";
+let painelResumoAberto = false;
 let html5QrcodeScanner = null;
 let streamVideoOCR = null;
 let camerasBarcode = [];
@@ -1227,22 +1228,25 @@ function renderizar() {
 }
 
 function filtrarPainel(tipo, el) {
-  filtroPainelAtual = (filtroPainelAtual === tipo && tipo !== "TODOS") ? "TODOS" : tipo;
-  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", ["TODOS",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
+  const mesmoTipo = filtroPainelAtual === tipo && painelResumoAberto;
+  filtroPainelAtual = tipo;
+  painelResumoAberto = !mesmoTipo;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", painelResumoAberto && ["TODOS",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
   renderizar();
   atualizarResumoPainel();
 }
 function fecharResumoPainel() {
   filtroPainelAtual = "TODOS";
+  painelResumoAberto = false;
   document.getElementById("painelProdutosResumo").hidden = true;
   document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
 }
 function atualizarResumoPainel() {
   const painel=document.getElementById("painelProdutosResumo");
   if(!painel)return;
-  if(filtroPainelAtual==="TODOS"){painel.hidden=true;return;}
-  const titulos={15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",ATUALIZADAS:"Etiquetas atualizadas"};
-  const itens=produtos.filter(p=>filtroPainelAtual==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===filtroPainelAtual&&!p.etiquetaAtualizada));
+  if(!painelResumoAberto){painel.hidden=true;return;}
+  const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",ATUALIZADAS:"Etiquetas atualizadas"};
+  const itens=produtos.filter(p=>filtroPainelAtual==="TODOS"?true:filtroPainelAtual==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===filtroPainelAtual&&!p.etiquetaAtualizada));
   document.getElementById("resumoTitulo").textContent=titulos[filtroPainelAtual]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
   const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
