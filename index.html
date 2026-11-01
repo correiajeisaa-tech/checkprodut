@@ -1226,7 +1226,6 @@ function renderizar() {
     return matchBusca && matchSetor && matchFunc && matchPainel && matchSituacao;
   });
 
-  document.getElementById("total").textContent = produtos.length;
   document.getElementById("alerta15").textContent = produtos.filter(p => situacao(p).faixa === 15 && !p.etiquetaAtualizada).length;
   document.getElementById("alerta30").textContent = produtos.filter(p => situacao(p).faixa === 30 && !p.etiquetaAtualizada).length;
   document.getElementById("alertaRetirada").textContent = produtos.filter(p => { const d=diasRestantes(p.validade); return d!==null && d>=0 && d<=10 && !p.retiradoVenda; }).length;
@@ -1271,7 +1270,7 @@ function filtrarPainel(tipo, el) {
   const mesmoTipo=painelResumoTipo===tipo && painelResumoAberto;
   painelResumoTipo=tipo;
   painelResumoAberto=!mesmoTipo;
-  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",painelResumoAberto && ["TODOS",15,30,"ATUALIZADAS"][i]===painelResumoTipo));
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",painelResumoAberto && ["RETIRAR",15,30][i]===painelResumoTipo));
   atualizarResumoPainel();
 }
 function fecharResumoPainel() {
