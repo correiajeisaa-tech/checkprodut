@@ -108,6 +108,18 @@
     .actions { display:flex; gap:4px; flex-wrap:wrap; }
     .actions button { padding:5px 8px; font-size:11px; }
     .empty { text-align:center; color:var(--muted); padding:35px 10px; font-size:13px; }
+    .produtos-panel{padding:0;overflow:hidden}
+    .produtos-recolhivel>summary{list-style:none;cursor:pointer}
+    .produtos-recolhivel>summary::-webkit-details-marker{display:none}
+    .produtos-resumo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px}
+    .produtos-resumo strong{display:block;color:var(--green);font-size:15px;font-weight:750}
+    .produtos-resumo small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+    .produtos-seta{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--border);border-radius:50%;color:var(--muted);font-size:20px;transition:transform .2s}
+    .produtos-recolhivel[open] .produtos-seta{transform:rotate(180deg)}
+    .produtos-recolhivel[open]>.produtos-resumo{border-bottom:1px solid var(--border)}
+    .produtos-conteudo{padding:16px 18px 18px}
+    .produtos-acoes-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    @media(max-width:550px){.produtos-resumo{padding:14px}.produtos-conteudo{padding:12px}.produtos-acoes-topo{align-items:flex-start}}
     .footer { text-align:center; color:var(--muted); font-size:10px; padding:20px; }
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center; padding:15px; }
     .modal-content { background:white; border-radius:12px; width:100%; max-width:800px; padding:20px; max-height:85vh; overflow-y:auto; }
@@ -285,16 +297,21 @@
     </form>
   </section>
 
-  <!-- TABELA DE PRODUTOS -->
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <h3>Produtos Acompanhados</h3>
-        <div class="subtitle">Lista de controle e trocas de etiqueta</div>
-      </div>
-      <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
-    </div>
-
+  <!-- PRODUTOS ACOMPANHADOS: PAINEL RECOLHÍVEL -->
+  <section class="panel produtos-panel">
+    <details class="produtos-recolhivel">
+      <summary class="produtos-resumo">
+        <span>
+          <strong>Produtos acompanhados</strong>
+          <small>Controle de validade e trocas de etiqueta</small>
+        </span>
+        <span class="produtos-seta" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="produtos-conteudo">
+        <div class="produtos-acoes-topo">
+          <span class="subtitle">Lista de produtos</span>
+          <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
+        </div>
     <div class="tabs-setores" id="tabsSetores">
       <div class="tab-item active" onclick="filtrarSetor('TODOS', this)">Todos</div>
       <div class="tab-item" onclick="filtrarSetor('Rações Dry', this)">Rações Dry</div>
@@ -332,6 +349,8 @@
       </table>
       <div id="vazio" class="empty">Nenhum produto cadastrado no momento.</div>
     </div>
+      </div>
+    </details>
   </section>
 
   <div class="footer">CheckProdut · Petcamp Sumaré</div>
