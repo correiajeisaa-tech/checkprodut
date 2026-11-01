@@ -150,6 +150,70 @@
 
     @media(max-width:850px){ .cards{grid-template-columns:repeat(2,1fr);} .form-grid{grid-template-columns:repeat(2,1fr);} }
     @media(max-width:550px){ main{padding:0 10px;} .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;} .cards .card{min-width:0;min-height:104px;padding:12px;display:flex;flex-direction:column;justify-content:center;} .cards .card small{font-size:10px;line-height:1.25;} .cards .number{font-size:25px;} .form-grid{grid-template-columns:1fr;} }
+
+    /* Nova apresentação CheckProdut — identidade original preservada */
+    body { background:linear-gradient(180deg,#edf3fb 0,#f6f8fc 280px); color:#172b49; }
+    header { background:linear-gradient(112deg,#071d3b 0%,#0b3568 58%,#07558c 100%); padding:18px clamp(16px,4vw,54px); box-shadow:0 8px 28px rgba(7,29,59,.16); border-bottom:3px solid #1685df; }
+    .brand h1 { font-size:24px; letter-spacing:-.7px; }
+    .brand small { color:#d5e7fb; letter-spacing:1.1px; }
+    main { max-width:1380px; margin:26px auto; padding:0 22px; }
+    h2 { color:#102d55; }
+    .welcome { padding:5px 2px 13px; }
+    .welcome h2 { font-size:25px; letter-spacing:-.6px; }
+    .subtitle { color:#657894; line-height:1.5; }
+    .card,.panel { border:1px solid #dce6f2; box-shadow:0 5px 20px rgba(16,45,85,.055); }
+    .card { border-radius:14px; padding:18px; background:#fff; }
+    .card:focus-visible,.card:hover { outline:2px solid #8bb9ed; box-shadow:0 9px 24px rgba(16,45,85,.09); }
+    .card.active-filter { border:2px solid #2476cb; }
+    .card small { color:#637894; letter-spacing:.25px; }
+    .card.green .number { color:#07834f; }
+    .card.orange .number { color:#bd790d; }
+    .card.red .number { color:#c62838; }
+    .card.blue .number { color:#075fc9; }
+    .panel { background:#fff; border-radius:14px; padding:20px; margin-bottom:18px; }
+    .panel-head { border-bottom-color:#e9eff7; }
+    .panel h3 { color:#17375f; }
+    button,label.btn-upload { border-radius:9px; min-height:39px; transition:transform .15s,filter .15s,box-shadow .15s; }
+    .primary,.tab-item.active { background:linear-gradient(110deg,#0757b8,#0879d1); color:#fff; box-shadow:0 3px 9px rgba(7,87,184,.14); }
+    .secondary { background:#eaf2fc; color:#174b82; border:1px solid #d5e4f6; }
+    .danger { background:#fff0ef; color:#b42318; }
+    .outline { background:#fff; border:1px solid #cbd9e9; color:#294767; }
+    button:hover,label.btn-upload:hover { filter:brightness(.97); transform:translateY(-1px); box-shadow:0 4px 10px rgba(16,45,85,.09); }
+    input,select,textarea { border-color:#cfdae9; border-radius:9px; }
+    input:focus,select:focus,textarea:focus { border-color:#5c9de2; box-shadow:0 0 0 3px rgba(48,128,211,.12); }
+    label { color:#435a76; }
+    .tab-item { background:#f1f5fb; border-color:#dce6f2; color:#61748e; }
+    .tab-item.active { border-color:#0757b8; }
+    .code-badge { background:#edf4ff; color:#174b82; border-color:#d4e4f7; }
+    th { color:#60748f; background:#f7f9fc; border-bottom-color:#dce6f2; }
+    td { border-bottom-color:#e8eef6; }
+    .tag.ok { background:#e6f6ed; color:#087747; }
+    .tag.warn { background:#fff3dc; color:#946000; }
+    .tag.urgent { background:#ffebeb; color:#b42318; }
+    .tag.done { background:#edf1f5; color:#52647a; }
+    .tag.setor { background:#eaf2fc; color:#205b91; }
+    .filtros-recolhiveis { background:#f9fbfe; border-color:#dce6f2; }
+    .produtos-panel { border-color:#dce6f2; }
+    .produtos-resumo strong { color:#17375f; }
+    .produtos-seta { border-color:#d6e1ee; color:#60748e; }
+    .resumo-produto { border-color:#dce6f2; background:#f8fbff; }
+    .modal-content { border:1px solid #dce6f2; border-radius:16px; box-shadow:0 20px 70px rgba(7,29,59,.2); }
+    .modal-head h4 { color:#17375f; }
+    #authGate { background:radial-gradient(ellipse at 50% 0%,#164d83 0%,#071d3b 68%); }
+    #authGate .auth-card { border:1px solid #dce6f2; border-radius:18px; box-shadow:0 24px 80px rgba(0,0,0,.32); }
+    #authGate h2 { color:#102d55; }
+    #authGate label { color:#435a76; }
+    #cloudBar .loja-nome { color:#f4f8ff; }
+    .footer { color:#71839b; }
+    @media(max-width:650px) {
+      header { padding:14px 12px; }
+      main { padding:0 11px; margin:17px auto; }
+      .welcome { align-items:flex-start; }
+      .welcome h2 { font-size:22px; }
+      .panel { padding:14px; }
+      .panel-head { align-items:flex-start; }
+    }
+
   </style>
 </head>
 <body>
