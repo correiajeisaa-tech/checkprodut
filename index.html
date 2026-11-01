@@ -249,7 +249,7 @@
         
         <div>
           <label for="descricao">Descrição do Produto</label>
-          <input id="descricao" placeholder="Preenchido automaticamente ao bipar" required oninput="autoDetectarSetor(this.value)">
+          <input id="descricao" placeholder="Preenchido automaticamente ao bipar" required oninput="autoDetectarSetor(this.value);atualizarPesoPorDescricao(this.value)">
           <small id="descricaoStatus" style="display:block;min-height:16px;margin-top:4px;color:var(--muted);font-size:10px;"></small>
         </div>
 
@@ -793,6 +793,26 @@ async function pesquisarDescricaoNaInternet(ean) {
   return "";
 }
 
+function atualizarPesoPorDescricao(descricao) {
+  const campoPeso = document.getElementById("peso");
+  if (!campoPeso) return "";
+  const texto = String(descricao || "").replace(/,/g, ".");
+  // Identifica apresentações como 1,5 kg, 500 g, 500 ml, 2 L ou 10.1kg.
+  const achado = texto.match(/\b(\d+(?:\.\d+)?)\s*(kg|quilo(?:s)?|g|gr|gramas?|ml|mL|l|litros?)\b/i);
+  if (!achado) return "";
+  let valor = achado[1].replace(/\.0+$/, "");
+  let unidade = achado[2].toLowerCase();
+  if (unidade === "quilo" || unidade === "quilos") unidade = "kg";
+  else if (unidade === "gr" || unidade === "grama" || unidade === "gramas") unidade = "g";
+  else if (unidade === "litro" || unidade === "litros") unidade = "L";
+  else if (unidade === "l") unidade = "L";
+  else if (unidade === "ml") unidade = "ml";
+  else if (unidade === "kg") unidade = "kg";
+  else unidade = "g";
+  campoPeso.value = valor + unidade;
+  return campoPeso.value;
+}
+
 async function buscarProdutoPorCodigo(codigo) {
   const ean = String(codigo || "").replace(/\s+/g, "").trim();
   const campoDescricao = document.getElementById("descricao");
@@ -837,6 +857,7 @@ async function buscarProdutoPorCodigo(codigo) {
     }
     localStorage.setItem("checkprodut_produtos_v8", JSON.stringify(produtos));
     campoDescricao.value = descricaoVerificada;
+    atualizarPesoPorDescricao(descricaoVerificada);
     autoDetectarSetor(descricaoVerificada);
     mostrarStatusDescricao("Descrição conferida pelo EAN.");
     ultimaBuscaInternet = ean;
@@ -855,6 +876,7 @@ async function buscarProdutoPorCodigo(codigo) {
   const registroEncontrado = item || produtoSalvo;
   if (registroEncontrado) {
     campoDescricao.value = registroEncontrado.descricao;
+    atualizarPesoPorDescricao(registroEncontrado.descricao);
     autoDetectarSetor(registroEncontrado.descricao);
     mostrarStatusDescricao(item ? "Descrição encontrada no banco da loja." : "Descrição encontrada nos produtos já cadastrados.");
     if (item?.validadeOrigem && /^\d{4}-\d{2}-\d{2}$/.test(item.validadeOrigem)) {
@@ -881,6 +903,7 @@ async function buscarProdutoPorCodigo(codigo) {
 
     // Preenche automaticamente, mas deixa o campo livre para correção pelo funcionário.
     campoDescricao.value = descricao;
+    atualizarPesoPorDescricao(descricao);
     autoDetectarSetor(descricao);
     mostrarStatusDescricao("Descrição sugerida pela internet. Confira ou corrija antes de salvar.");
 
