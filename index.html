@@ -652,8 +652,8 @@ function descricaoVerificadaPorEAN(ean) {
 }
 
 async function pesquisarDescricaoNaInternet(ean) {
-  const codigo = String(ean || "").replace(/\\s+/g, "").trim();
-  if (!/^\\d{8,14}$/.test(codigo)) return "";
+  const codigo = String(ean || "").replace(/\s+/g, "").trim();
+  if (!/^\d{8,14}$/.test(codigo)) return "";
   if (cacheBuscaInternet.has(codigo)) return cacheBuscaInternet.get(codigo);
 
   // APIs oficiais: prioriza o banco de alimentação animal e consulta também
@@ -678,7 +678,7 @@ async function pesquisarDescricaoNaInternet(ean) {
     if (!nome) return null;
     const marca = String(p.brands || "").trim();
     const quantidade = String(p.quantity || "").trim();
-    return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\\s+/g, " ").trim();
+    return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
   };
 
   const consultar = async base => {
