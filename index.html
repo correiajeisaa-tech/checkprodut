@@ -652,20 +652,38 @@ function descricaoVerificadaPorEAN(ean) {
 }
 
 async function pesquisarDescricaoNaInternet(ean) {
-  const codigo = String(ean || "").replace(/\s+/g, "").trim();
+  const codigo = String(ean || "").replace(/\\s+/g, "").trim();
+  if (!/^\\d{8,14}$/.test(codigo)) return "";
   if (cacheBuscaInternet.has(codigo)) return cacheBuscaInternet.get(codigo);
 
-  // Consulta as bases por código, em paralelo. Falha de uma fonte não impede as demais.
+  // APIs oficiais: prioriza o banco de alimentação animal e consulta também
+  // o catálogo geral com product_type=all para permitir redirecionamentos.
   const bases = [
     {nome:"Open Pet Food Facts", url:"https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
+    {nome:"Open Food Facts v3 (petfood)", url:"https://world.openfoodfacts.org/api/v3.6/product/" + encodeURIComponent(codigo) + ".json?product_type=petfood&fields=code,product_name,product_name_pt,abbreviated_product_name,generic_name,generic_name_pt,brands,quantity,categories"},
+    {nome:"Open Food Facts v3 (todos os tipos)", url:"https://world.openfoodfacts.org/api/v3.6/product/" + encodeURIComponent(codigo) + ".json?product_type=all&fields=code,product_name,product_name_pt,abbreviated_product_name,generic_name,generic_name_pt,brands,quantity,categories"},
     {nome:"Open Products Facts", url:"https://world.openproductsfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
-    {nome:"Open Food Facts", url:"https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
     {nome:"Open Food Facts Brasil", url:"https://br.openfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"}
   ];
 
+  const extrairProduto = dados => {
+    if (!dados || typeof dados !== "object") return null;
+    // v2 usa status=1; v3 pode devolver product diretamente sem status numérico.
+    const p = dados.product && typeof dados.product === "object" ? dados.product : null;
+    if (!p || (dados.status === 0 && !p.product_name && !p.product_name_pt)) return null;
+    const nome = [
+      p.product_name_pt, p.product_name, p.abbreviated_product_name,
+      p.generic_name_pt, p.generic_name, p.product_name_en
+    ].find(v => typeof v === "string" && v.trim().length >= 3);
+    if (!nome) return null;
+    const marca = String(p.brands || "").trim();
+    const quantidade = String(p.quantity || "").trim();
+    return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\\s+/g, " ").trim();
+  };
+
   const consultar = async base => {
     const controlador = new AbortController();
-    const limite = setTimeout(() => controlador.abort(), 7000);
+    const limite = setTimeout(() => controlador.abort(), 9000);
     try {
       const resposta = await fetch(base.url, {
         method:"GET",
@@ -676,32 +694,28 @@ async function pesquisarDescricaoNaInternet(ean) {
       });
       if (!resposta.ok) throw new Error("HTTP " + resposta.status);
       const dados = await resposta.json();
-      if (!dados || dados.status !== 1 || !dados.product) return null;
-      const p = dados.product;
-      const nome = [
-        p.product_name_pt,
-        p.product_name,
-        p.abbreviated_product_name,
-        p.generic_name_pt,
-        p.generic_name,
-        p.product_name_en
-      ].find(v => typeof v === "string" && v.trim().length >= 3);
-      if (!nome) return null;
-      const marca = String(p.brands || "").trim();
-      const quantidade = String(p.quantity || "").trim();
-      return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
+      return {nome:base.nome, descricao:extrairProduto(dados), erro:null};
     } catch (erro) {
       console.warn("Falha na fonte " + base.nome + " para EAN " + codigo + ":", erro);
-      return null;
+      return {nome:base.nome, descricao:"", erro:String(erro?.message || erro)};
     } finally {
       clearTimeout(limite);
     }
   };
 
   const resultados = await Promise.all(bases.map(consultar));
-  const descricao = resultados.find(v => typeof v === "string" && v.length >= 3) || "";
-  if (descricao) cacheBuscaInternet.set(codigo, descricao);
-  return descricao;
+  // Só aceita resposta com nome de produto; não inventa descrição a partir de marca/categoria.
+  const encontrado = resultados.find(r => r.descricao);
+  const descricao = encontrado?.descricao || "";
+  if (descricao) {
+    cacheBuscaInternet.set(codigo, descricao);
+    return descricao;
+  }
+  const falhas = resultados.filter(r => r.erro).length;
+  console.info("Busca EAN " + codigo + ": " + (falhas === bases.length
+    ? "todas as fontes falharam por conexão/HTTP."
+    : "fontes consultadas sem cadastro correspondente."), resultados);
+  return "";
 }
 
 async function buscarProdutoPorCodigo(codigo) {
