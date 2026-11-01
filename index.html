@@ -573,9 +573,12 @@ async function gravarImportacao(dados, origem, event) {
     const key=chaveCatalogo(item);
     if(existentes.has(key)){repetidos++;continue;}
     const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
-    if(pendente){pendente.descricao=item.descricao;descricoesAtualizadas++;existentes.add(key);continue;}
+    if(pendente){pendente.descricao=item.descricao;pendente.id=idCatalogo(pendente);descricoesAtualizadas++;existentes.add(key);continue;}
+    item.id=idCatalogo(item);
     catalogoBase.push(item);existentes.add(key);adicionados++;
   }
+  // Normaliza também registros antigos sem ID para que a sincronização seja estável.
+  catalogoBase.forEach(item=>{if(!item.id)item.id=idCatalogo(item);});
   let acompanhamentosNovos=0;
   const chavesProdutos=new Set(produtos.map(p=>[codigoLimpo(p.barcode),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|")));
   for(const item of novosAcompanhamentos){
@@ -1784,28 +1787,32 @@ function applyRole() {
   document.querySelectorAll(".master-only").forEach(el => el.style.display = role==="MASTER" ? "" : "none");
   userLabel.textContent = auth.currentUser ? auth.currentUser.email+" · "+role : "";
 }
+function idCatalogo(item) {
+  const base = [String(item.codigo ?? "").trim(), String(item.validadeOrigem ?? "").trim(), String(item.descricao ?? "").trim().toLowerCase()].join("|");
+  let hash = 2166136261;
+  for (let i=0; i<base.length; i++) { hash ^= base.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+  return "cat_" + (hash >>> 0).toString(36) + "_" + String(item.codigo ?? "").replace(/\\D/g,"").slice(-8);
+}
 async function seedCollection(name, localItems, remoteDocs) {
   const remote = new Map(remoteDocs.map(d => [String(d.id), d]));
   const local = Array.isArray(localItems) ? localItems : [];
-  const merged = new Map(remote);
-  local.forEach((item,index) => {
-    const key = String(item.id ?? (name === "checkprodut_catalogo"
-      ? String(item.codigo ?? "") + "__" + String(item.validadeOrigem ?? "sem-validade") + "__" + index
-      : item.id ?? ""));
-    if (key && !merged.has(key)) merged.set(key, { ...item, id: item.id ?? key });
-  });
-  if (merged.size > remote.size) {
-    const pendentes = [...merged.entries()].filter(([key]) => !remote.has(key));
-    // Sincroniza TODO o catálogo em lotes seguros; não interrompe nos primeiros 450.
-    for (let inicio=0; inicio<pendentes.length; inicio+=400) {
-      const batch = writeBatch(db);
-      pendentes.slice(inicio,inicio+400).forEach(([key,item]) => {
-        batch.set(doc(collection(db,name),key), item);
-      });
-      await batch.commit();
+  // Produtos removidos na nuvem nunca devem reaparecer por causa de um cache antigo.
+  // A migração local de produtos só é permitida quando a coleção remota está vazia.
+  const podeMigrarLocal = name === "checkprodut_catalogo" || remote.size === 0;
+  if (podeMigrarLocal) {
+    for (const item of local) {
+      const key = String(item.id || (name === "checkprodut_catalogo" ? idCatalogo(item) : ""));
+      if (!key || remote.has(key)) continue;
+      remote.set(key, { ...item, id: key });
     }
   }
-  return [...merged.values()];
+  const pendentes = [...remote.entries()].filter(([key]) => !remoteDocs.some(d => String(d.id) === key));
+  for (let inicio=0; inicio<pendentes.length; inicio+=400) {
+    const batch = writeBatch(db);
+    pendentes.slice(inicio,inicio+400).forEach(([key,item]) => batch.set(doc(collection(db,name),key),item));
+    await batch.commit();
+  }
+  return [...remote.values()];
 }
 async function startCloud(user) {
   const productsRef=collection(db,"checkprodut_produtos");
@@ -1815,8 +1822,8 @@ async function startCloud(user) {
   const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
   const cloudP=await seedCollection("checkprodut_produtos",localP,pSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id})));
   let cloudC=cSnap.docs.map(d=>({...d.data(),id:d.data().id??d.id}));
-  // Recuperação protegida do catálogo: se o MASTER tiver um cache local maior que a nuvem,
-  // preserva e envia os registros locais antes de substituir o cache. STORE nunca faz migração.
+  // Catálogo é compartilhado: o MASTER recupera o cache local quando ele contém mais
+  // registros que a nuvem. A chave determinística evita duplicação entre aparelhos/importações.
   if(role==="MASTER" && localC.length>cloudC.length) {
     cloudC=await seedCollection("checkprodut_catalogo",localC,cloudC);
     status.textContent="Recuperando catálogo local: "+cloudC.length+" itens...";
