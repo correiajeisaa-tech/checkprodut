@@ -492,6 +492,9 @@ aplicarPreferenciasCadastro();
 
 let cameraBarcodeAtual = null;
 const retiradasSelecionadas = new Set();
+let arrastandoRetiradaLote = false;
+let arrastouRetiradaLote = false;
+document.addEventListener("pointerup",()=>{arrastandoRetiradaLote=false;});
 let processandoOCR = false;
 
 // Ponte segura para os dados recebidos da nuvem (mantém as variáveis originais do sistema).
@@ -1397,8 +1400,9 @@ function atualizarResumoPainel() {
       const cb=document.createElement("input");cb.type="checkbox";cb.style.width="auto";cb.checked=retiradasSelecionadas.has(p);
       cb.addEventListener("click",e=>e.stopPropagation());
       cb.addEventListener("change",()=>{if(cb.checked)retiradasSelecionadas.add(p);else retiradasSelecionadas.delete(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
-      item.addEventListener("mouseenter",()=>{retiradasSelecionadas.add(p);cb.checked=true;atualizarVisualSelecao();atualizarContadorRetiradaLote();});
-      item.addEventListener("click",e=>{if(e.target.closest("input,label"))return;if(retiradasSelecionadas.has(p))retiradasSelecionadas.delete(p);else retiradasSelecionadas.add(p);cb.checked=retiradasSelecionadas.has(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
+      item.addEventListener("pointerdown",e=>{if(e.button!==0)return;arrastandoRetiradaLote=true;arrastouRetiradaLote=false;});
+      item.addEventListener("pointerenter",()=>{if(!arrastandoRetiradaLote)return;arrastouRetiradaLote=true;retiradasSelecionadas.add(p);cb.checked=true;atualizarVisualSelecao();atualizarContadorRetiradaLote();});
+      item.addEventListener("click",e=>{if(arrastouRetiradaLote){arrastouRetiradaLote=false;e.preventDefault();return;}if(e.target.closest("input,label"))return;if(retiradasSelecionadas.has(p))retiradasSelecionadas.delete(p);else retiradasSelecionadas.add(p);cb.checked=retiradasSelecionadas.has(p);atualizarVisualSelecao();atualizarContadorRetiradaLote();});
       const txt=document.createElement("span");txt.textContent="Selecionar para retirada em lote";linha.append(cb,txt);item.appendChild(linha);
       atualizarVisualSelecao();
     }
