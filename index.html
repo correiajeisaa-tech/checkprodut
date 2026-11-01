@@ -407,6 +407,7 @@ let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]")
 let setorFiltroAtual = "TODOS";
 let filtroPainelAtual = "TODOS";
 let painelResumoAberto = false;
+let painelResumoTipo = "TODOS";
 let html5QrcodeScanner = null;
 let streamVideoOCR = null;
 let camerasBarcode = [];
@@ -1236,17 +1237,17 @@ function renderizar() {
 }
 
 function filtrarPainel(tipo, el) {
-  const mesmoTipo = filtroPainelAtual === tipo && painelResumoAberto;
-  filtroPainelAtual = tipo;
-  painelResumoAberto = !mesmoTipo;
-  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter", painelResumoAberto && ["TODOS",15,30,"ATUALIZADAS"][i] === filtroPainelAtual));
-  renderizar();
+  const painel=document.getElementById("painelProdutosResumo");
+  const mesmoTipo=painelResumoTipo===tipo && painelResumoAberto;
+  painelResumoTipo=tipo;
+  painelResumoAberto=!mesmoTipo;
+  document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",painelResumoAberto && ["TODOS",15,30,"ATUALIZADAS"][i]===painelResumoTipo));
   atualizarResumoPainel();
 }
 function fecharResumoPainel() {
-  filtroPainelAtual = "TODOS";
-  painelResumoAberto = false;
-  document.getElementById("painelProdutosResumo").hidden = true;
+  painelResumoAberto=false;
+  const painel=document.getElementById("painelProdutosResumo");
+  if(painel)painel.hidden=true;
   document.querySelectorAll(".cards .card").forEach(c=>c.classList.remove("active-filter"));
 }
 function atualizarResumoPainel() {
@@ -1254,8 +1255,8 @@ function atualizarResumoPainel() {
   if(!painel)return;
   if(!painelResumoAberto){painel.hidden=true;return;}
   const titulos={TODOS:"Todos os produtos cadastrados",15:"Troca de etiqueta · 15%",30:"Troca de etiqueta · 30%",ATUALIZADAS:"Etiquetas atualizadas"};
-  const itens=produtos.filter(p=>filtroPainelAtual==="TODOS"?true:filtroPainelAtual==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===filtroPainelAtual&&!p.etiquetaAtualizada));
-  document.getElementById("resumoTitulo").textContent=titulos[filtroPainelAtual]||"Produtos cadastrados";
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="ATUALIZADAS"?!!p.etiquetaAtualizada:(situacao(p).faixa===painelResumoTipo&&!p.etiquetaAtualizada));
+  document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
   const lista=document.getElementById("resumoListaProdutos");lista.innerHTML="";
   itens.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999)).forEach(p=>{
