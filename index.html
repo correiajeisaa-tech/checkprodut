@@ -766,14 +766,19 @@ async function pesquisarDescricaoNaInternet(ean) {
     // Datakick pode devolver o item diretamente; Open* devolve {product:{...}}.
     const p = dados.product && typeof dados.product === "object" ? dados.product
       : (dados.item && typeof dados.item === "object" ? dados.item : dados);
-    if (!p || (dados.status === 0 && !p.product_name && !p.product_name_pt)) return null;
+    if (!p) return null;
+    // status=0 indica ausência no Open Food Facts, mas outras APIs podem usar campos diferentes.
+    const possuiNome = [p.product_name_pt, p.product_name, p.abbreviated_product_name,
+      p.generic_name_pt, p.generic_name, p.product_name_en, p.title, p.name,
+      p.description, p.product].some(v => typeof v === "string" && v.trim().length >= 3);
+    if (dados.status === 0 && !possuiNome) return null;
     const nome = [
       p.product_name_pt, p.product_name, p.abbreviated_product_name,
       p.generic_name_pt, p.generic_name, p.product_name_en,
       p.title, p.name, p.description, p.product
     ].find(v => typeof v === "string" && v.trim().length >= 3);
     if (!nome) return null;
-    const marca = String(p.brands || p.brand || p.manufacturer || "").trim();
+    const marca = String(p.brands || p.brand || p.brand_name || p.manufacturer || "").trim();
     const quantidade = String(p.quantity || p.size || p.net_content || "").trim();
     return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
   };
