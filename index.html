@@ -569,9 +569,9 @@ function importarTextoColado() {
   const status=document.getElementById("statusImportacaoTexto");
   const texto=campo.value.trim();
   if(!texto){status.textContent="Cole os dados antes de importar.";return;}
-  const linhas=texto.split(/\\r?\\n/).map(l=>l.trim()).filter(Boolean);
-  const separar=linha=>linha.includes("\\t")?linha.split("\\t"):linha.split(/\\s*;\\s*/);
-  const norm=v=>String(v??"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
+  const linhas=texto.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const separar=linha=>linha.includes("\t")?linha.split("\\t"):linha.split(/\s*;\s*/);
+  const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
   const ehGtin=h=>/gtin|ean/.test(h);
   const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras/.test(h);
   const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
@@ -585,8 +585,8 @@ function importarTextoColado() {
   }
   if(cabecalho<0){status.textContent="Não encontrei os cabeçalhos GTIN/EAN, descrição e data de validade. Copie também a primeira linha do relatório.";return;}
   for(let i=cabecalho+1;i<matriz.length;i++){
-    const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\\.0$/,"").replace(/\\D/g,"");
-    if(!/^\\d{8,14}$/.test(gtin))continue;
+    const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\.0$/,"").replace(/\D/g,"");
+    if(!/^\d{8,14}$/.test(gtin))continue;
     dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
   }
   try {
