@@ -644,50 +644,56 @@ function mostrarStatusDescricao(texto, erro=false) {
 // Consulta bases públicas pelo código de barras. O resultado só é salvo
 // quando a base retorna um nome de produto utilizável.
 async function pesquisarDescricaoNaInternet(ean) {
-  if (cacheBuscaInternet.has(ean)) return cacheBuscaInternet.get(ean);
+  const codigo = String(ean || "").replace(/\s+/g, "").trim();
+  if (cacheBuscaInternet.has(codigo)) return cacheBuscaInternet.get(codigo);
 
-  // Cadastro de conferência para EANs já identificados pela equipe.
-  // Evita depender de uma base externa para produtos que já foram confirmados.
-  const catalogoConhecido = {
-    "7896181215387": "Gastrointestinal Padrão - 1,5 kg",
-    "20001330000115": "Gastrointestinal Fibre Response - 1,5 kg",
-    "7908248302197": "Gastrointestinal Hydrolyzed Protein - 1,5 kg",
-    "7897348207832": "PremieR Fórmula Cães Sênior - Raças Grandes e Gigantes - Frango"
-  };
-  if (catalogoConhecido[ean]) {
-    cacheBuscaInternet.set(ean, catalogoConhecido[ean]);
-    return catalogoConhecido[ean];
-  }
-
-  // Fontes abertas: Pet Food Facts, Open Food Facts e Open Products Facts.
-  // A última amplia a cobertura para produtos que não são alimentos humanos.
-  const fontes = [
-    "https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
-    "https://world.openproductsfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
-    "https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json",
-    "https://br.openfoodfacts.org/api/v2/product/" + encodeURIComponent(ean) + ".json"
+  // Consulta as bases por código, em paralelo. Falha de uma fonte não impede as demais.
+  const bases = [
+    {nome:"Open Pet Food Facts", url:"https://world.openpetfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
+    {nome:"Open Products Facts", url:"https://world.openproductsfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
+    {nome:"Open Food Facts", url:"https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"},
+    {nome:"Open Food Facts Brasil", url:"https://br.openfoodfacts.org/api/v2/product/" + encodeURIComponent(codigo) + ".json"}
   ];
-  for (const url of fontes) {
+
+  const consultar = async base => {
+    const controlador = new AbortController();
+    const limite = setTimeout(() => controlador.abort(), 7000);
     try {
-      const resposta = await fetch(url, {headers: {"Accept": "application/json"}});
-      if (!resposta.ok) continue;
+      const resposta = await fetch(base.url, {
+        method:"GET",
+        mode:"cors",
+        headers:{"Accept":"application/json"},
+        signal:controlador.signal,
+        cache:"no-store"
+      });
+      if (!resposta.ok) throw new Error("HTTP " + resposta.status);
       const dados = await resposta.json();
-      if (dados.status !== 1 || !dados.product) continue;
+      if (!dados || dados.status !== 1 || !dados.product) return null;
       const p = dados.product;
-      const nome = String(
-        p.product_name_pt || p.product_name || p.abbreviated_product_name ||
-        p.generic_name_pt || p.generic_name || p.product_name_en || ""
-      ).trim();
-      if (!nome || nome.length < 3) continue;
-      const detalhes = [p.brands, p.quantity].filter(Boolean).join(" ");
-      const descricao = [nome, detalhes].filter(Boolean).join(" - ").replace(/\\s+/g, " ").trim();
-      cacheBuscaInternet.set(ean, descricao);
-      return descricao;
+      const nome = [
+        p.product_name_pt,
+        p.product_name,
+        p.abbreviated_product_name,
+        p.generic_name_pt,
+        p.generic_name,
+        p.product_name_en
+      ].find(v => typeof v === "string" && v.trim().length >= 3);
+      if (!nome) return null;
+      const marca = String(p.brands || "").trim();
+      const quantidade = String(p.quantity || "").trim();
+      return [nome.trim(), marca, quantidade].filter(Boolean).join(" - ").replace(/\s+/g, " ").trim();
     } catch (erro) {
-      console.warn("Consulta de produto indisponível:", url, erro);
+      console.warn("Falha na fonte " + base.nome + " para EAN " + codigo + ":", erro);
+      return null;
+    } finally {
+      clearTimeout(limite);
     }
-  }
-  return "";
+  };
+
+  const resultados = await Promise.all(bases.map(consultar));
+  const descricao = resultados.find(v => typeof v === "string" && v.length >= 3) || "";
+  if (descricao) cacheBuscaInternet.set(codigo, descricao);
+  return descricao;
 }
 
 async function buscarProdutoPorCodigo(codigo) {
@@ -695,19 +701,6 @@ async function buscarProdutoPorCodigo(codigo) {
   const campoDescricao = document.getElementById("descricao");
   const campoCodigo = document.getElementById("barcode");
   if (!campoDescricao || !campoCodigo) return;
-
-  // Resolução local prioritária para EANs já conferidos, sem depender da internet.
-  const produtosConfirmados = {
-    "7898232038563": "Silmox CL 300 mg - Vansil - 10 comprimidos"
-  };
-  if (produtosConfirmados[ean]) {
-    clearTimeout(timerBuscaInternet);
-    campoDescricao.value = produtosConfirmados[ean];
-    autoDetectarSetor(campoDescricao.value);
-    mostrarStatusDescricao("Descrição identificada pelo cadastro de referência do CheckProdut.");
-    ultimaBuscaInternet = ean;
-    return;
-  }
 
   if (!ean) {
     clearTimeout(timerBuscaInternet);
