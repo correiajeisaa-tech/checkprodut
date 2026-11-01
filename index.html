@@ -157,10 +157,24 @@
       📥 Carregar Relatório da Loja (Excel, CSV ou PDF)
       <input type="file" id="relatorioFile" accept=".xlsx, .xls, .csv, .pdf" style="display:none;" onchange="carregarRelatorioLoja(event)">
     </label>
+    <button type="button" class="secondary" onclick="document.getElementById('textoImportacao').scrollIntoView({behavior:'smooth'});document.getElementById('textoImportacao').focus();">📋 Colar relatório</button>
   </div>
 </header>
 
 <main>
+  <section class="panel" id="painelImportacao">
+    <div class="panel-head"><div><h3>Importar por texto</h3><div class="subtitle">Copie as células do Excel ou cole o conteúdo de um bloco de notas.</div></div></div>
+    <label for="textoImportacao">Conteúdo copiado (GTIN, descrição e data de validade)</label>
+    <textarea id="textoImportacao" rows="5" placeholder="Cole aqui as linhas copiadas do Excel ou do bloco de notas. Mantenha as colunas separadas por tabulação ou ponto e vírgula."></textarea>
+    <div class="form-actions" style="justify-content:space-between;flex-wrap:wrap;">
+      <small class="subtitle">A importação identifica GTIN/EAN, descrição e validade pelo cabeçalho. A data original é mantida.</small>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="outline" onclick="document.getElementById('textoImportacao').value=''">Limpar campo</button>
+        <button type="button" class="primary" onclick="importarTextoColado()">Importar texto</button>
+      </div>
+    </div>
+    <div id="statusImportacaoTexto" class="subtitle" aria-live="polite"></div>
+  </section>
   <div class="welcome">
     <div>
       <h2>Painel de Validade</h2>
@@ -548,6 +562,42 @@ async function carregarRelatorioLoja(event) {
   }
 }
 
+// Importa conteúdo copiado do Excel ou colado de um bloco de notas.
+// Exige cabeçalhos para não confundir código interno com GTIN.
+function importarTextoColado() {
+  const campo=document.getElementById("textoImportacao");
+  const status=document.getElementById("statusImportacaoTexto");
+  const texto=campo.value.trim();
+  if(!texto){status.textContent="Cole os dados antes de importar.";return;}
+  const linhas=texto.split(/\\r?\\n/).map(l=>l.trim()).filter(Boolean);
+  const separar=linha=>linha.includes("\\t")?linha.split("\\t"):linha.split(/\\s*;\\s*/);
+  const norm=v=>String(v??"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().trim().replace(/[^a-z0-9 ]/g," ");
+  const ehGtin=h=>/gtin|ean/.test(h);
+  const ehCodigo=h=>ehGtin(h)||/codigo.*barra|cod.*barra|barras/.test(h);
+  const ehDescricao=h=>/descricao|descr|nome.*produto|produto|^item$/.test(h);
+  const ehValidade=h=>/valid|venc|data.*(val|venc)|val.*(produto|lote)|lote.*valid/.test(h);
+  let dados=[], cabecalho=-1, colGtin=-1, colDesc=-1, colVal=-1;
+  const matriz=linhas.map(separar);
+  for(let i=0;i<Math.min(matriz.length,30);i++){
+    const h=matriz[i].map(norm);
+    const g=h.findIndex(ehCodigo),d=h.findIndex(ehDescricao),v=h.findIndex(ehValidade);
+    if(g>=0&&d>=0&&v>=0){cabecalho=i;colGtin=g;colDesc=d;colVal=v;break;}
+  }
+  if(cabecalho<0){status.textContent="Não encontrei os cabeçalhos GTIN/EAN, descrição e data de validade. Copie também a primeira linha do relatório.";return;}
+  for(let i=cabecalho+1;i<matriz.length;i++){
+    const row=matriz[i],gtin=String(row[colGtin]??"").trim().replace(/\\.0$/,"").replace(/\\D/g,"");
+    if(!/^\\d{8,14}$/.test(gtin))continue;
+    dados.push({codigo:gtin,descricao:String(row[colDesc]??"").trim(),validade:row[colVal]});
+  }
+  try {
+    gravarImportacao(dados,"Texto colado",null);
+    status.textContent="Texto processado. Confira o resumo da importação.";
+    campo.value="";
+  } catch(err) {
+    status.textContent=err.message||"Não foi possível importar o texto.";
+  }
+}
+
 // BUSCA AUTOMÁTICA AO BIPAR
 let timerBuscaInternet = null;
 let ultimaBuscaInternet = "";
@@ -768,14 +818,23 @@ function renderizarTabelaBanco() {
   });
 }
 
-function limparBancoDados() {
-  if (confirm("Deseja apagar todo o catálogo importado da loja?")) {
-    catalogoBase = [];
+async function limparBancoDados() {
+  if (!confirm("ATENÇÃO: deseja apagar o catálogo importado da nuvem da Petcamp e deste aparelho? Esta ação afeta todos os usuários da loja.")) return;
+  const botao=document.querySelector("#modalBanco .danger.master-only");
+  if(botao){botao.disabled=true;botao.textContent="Apagando...";}
+  try {
+    await window.CheckProdutCloud?.clearCatalog();
+    catalogoBase=[];
     localStorage.removeItem(CHAVE_BASE_CATALOGO);
-    window.CheckProdutCloud?.clearCatalog();
     atualizarContadorBanco();
+    renderizarTabelaBanco();
     fecharModalBanco();
-    alert("Banco de dados limpo com sucesso!");
+    alert("Catálogo apagado da nuvem compartilhada e deste aparelho.");
+  } catch(err) {
+    console.error("Falha ao limpar catálogo compartilhado:",err);
+    alert("Não foi possível apagar todo o catálogo da nuvem. Nenhum sucesso foi confirmado. Tente novamente ou confira a conexão.");
+  } finally {
+    if(botao){botao.disabled=false;botao.textContent="🗑️ Limpar Banco";}
   }
 }
 
@@ -1429,9 +1488,23 @@ window.CheckProdutCloud = {
   },
   deleteProduct: async id => { if(ready && role==="MASTER") await deleteDoc(doc(db,"checkprodut_produtos",String(id))); },
   clearCatalog: async () => {
-    if(!ready || role!=="MASTER") return;
-    const snap=await getDocs(collection(db,"checkprodut_catalogo"));
-    const batch=writeBatch(db); snap.docs.forEach(d=>batch.delete(d.ref)); await batch.commit();
+    if(!ready || role!=="MASTER") throw new Error("Somente o acesso MASTER pode apagar o catálogo.");
+    const ref=collection(db,"checkprodut_catalogo");
+    let removidos=0;
+    while(true) {
+      const snap=await getDocs(ref);
+      if(snap.empty) break;
+      for(let inicio=0;inicio<snap.docs.length;inicio+=400) {
+        const batch=writeBatch(db);
+        snap.docs.slice(inicio,inicio+400).forEach(d=>batch.delete(d.ref));
+        await batch.commit();
+        removidos+=Math.min(400,snap.docs.length-inicio);
+      }
+    }
+    const local=[];
+    localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(local));
+    window.aplicarDadosDaNuvem?.(null,local);
+    return removidos;
   },
   logout: async () => { if(stopProducts)stopProducts(); if(stopCatalog)stopCatalog(); ready=false; await signOut(auth); }
 };
