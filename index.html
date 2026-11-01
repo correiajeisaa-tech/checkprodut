@@ -116,6 +116,9 @@
     .filtros-recolhiveis[open] .filtros-seta{transform:rotate(180deg)}
     .filtros-recolhiveis[open]>.filtros-resumo{border-bottom:1px solid var(--border)}
     .filtros-recolhiveis .filter-row{padding:12px;margin:0}
+    #cloudBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    #cloudBar .loja-nome{font-size:13px;color:inherit;letter-spacing:.2px}
+    #cloudBar .cloud-interno{display:none!important}
     .produtos-panel{padding:0;overflow:hidden}
     .produtos-recolhivel>summary{list-style:none;cursor:pointer}
     .produtos-recolhivel>summary::-webkit-details-marker{display:none}
@@ -177,7 +180,7 @@
     </div>
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-    <div id="cloudBar"><span id="cloudStatus">Conectando...</span><strong id="cloudUser"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
+    <div id="cloudBar"><strong class="loja-nome">PetCamp Nova Odessa</strong><span id="cloudStatus" class="cloud-interno">Conectando...</span><strong id="cloudUser" class="cloud-interno"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
     <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
     <button type="button" class="secondary" onclick="abrirColagemEspecial()">📋 Colar especial</button>
     <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
