@@ -1948,7 +1948,7 @@ async function startCloud(user) {
   // não possuem registro em produtos. O catálogo original permanece intacto;
   // os novos acompanhamentos são gravados na coleção já existente de produtos.
   const chaveAcompanhamento = item => [
-    String(item.barcode || "").trim().replace(/\\D/g,""),
+    String(item.barcode || "").trim().replace(/\D/g,""),
     window.interpretarDataValidade?.(item.validade)?.getTime() || "",
     String(item.descricao || "").trim().toLowerCase()
   ].join("|");
@@ -1956,7 +1956,7 @@ async function startCloud(user) {
   let idNovoAcompanhamento = Date.now();
   let novosAcompanhamentosBanco = 0;
   for (const item of cloudC) {
-    const codigo = String(item.codigo || "").trim().replace(/\\D/g,"");
+    const codigo = String(item.codigo || "").trim().replace(/\D/g,"");
     const data = window.interpretarDataValidade?.(item.validadeOrigem);
     if (!codigo || codigo.length < 8 || !data) continue;
     const validade = [data.getFullYear(),String(data.getMonth()+1).padStart(2,"0"),String(data.getDate()).padStart(2,"0")].join("-");
