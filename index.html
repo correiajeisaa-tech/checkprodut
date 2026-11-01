@@ -264,6 +264,9 @@
             <option value="">Selecione o Setor</option>
             <option value="Rações Dry">Rações Dry (Secas)</option>
             <option value="Rações Úmidas">Rações Úmidas</option>
+            <option value="Pássaros">Pássaros</option>
+            <option value="Areia">Areia</option>
+            <option value="Petiscos Secos">Petiscos Secos</option>
             <option value="Higiene e Limpeza">Higiene e Limpeza</option>
             <option value="Farmácia e Medicamentos">Farmácia e Medicamentos</option>
             <option value="Acessórios e Brinquedos">Acessórios e Brinquedos</option>
@@ -328,7 +331,7 @@
       <div class="filter-row">
         <input id="busca" placeholder="Pesquisar por código, produto ou funcionário..." oninput="renderizar()">
         <select id="filtroFuncionario" onchange="renderizar()"><option value="">Todos os Funcionários</option></select>
-        <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
+        <select id="filtroSetor" onchange="renderizar()"><option value="">Todos os Setores</option><option>Rações Dry</option><option>Rações Úmidas</option><option>Pássaros</option><option>Areia</option><option>Petiscos Secos</option><option>Higiene e Limpeza</option><option>Farmácia e Medicamentos</option><option>Acessórios e Brinquedos</option><option>Outros</option></select>
         <select id="filtroSituacao" onchange="renderizar()"><option value="">Todas as situações</option><option value="VENCIDOS">Vencidos</option><option value="RETIRAR">Retirar em até 10 dias</option><option value="RETIRADOS">Retirados da venda</option><option value="PENDENTE">Troca de etiqueta pendente</option></select>
         <button type="button" class="outline" onclick="abrirHistoricoVencimentos()">Histórico de vencimentos · 30 dias</button>
       </div>
@@ -1038,9 +1041,15 @@ function autoDetectarSetor(descricao) {
   const badge = document.getElementById("autoSetorBadge");
 
   let setorDetectado = "";
-  if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal") || desc.includes("biofresh")) {
+  if (desc.includes("petisco") || desc.includes("bifinho") || desc.includes("snack") || desc.includes("ossinho")) {
+    setorDetectado = "Petiscos Secos";
+  } else if (desc.includes("passaro") || desc.includes("pássaro") || desc.includes("calopsita") || desc.includes("canario") || desc.includes("canário") || desc.includes("periquito") || desc.includes("papagaio") || desc.includes("coleiro") || desc.includes("trinca-ferro")) {
+    setorDetectado = "Pássaros";
+  } else if (desc.includes("areia") || desc.includes("sílica") || desc.includes("silica") || desc.includes("granulado higiênico") || desc.includes("granulado higienico")) {
+    setorDetectado = "Areia";
+  } else if (desc.includes("ração") || desc.includes("racao") || desc.includes("premier") || desc.includes("golden") || desc.includes("royal") || desc.includes("biofresh")) {
     setorDetectado = (desc.includes("sache") || desc.includes("sachê") || desc.includes("lata") || desc.includes("churu")) ? "Rações Úmidas" : "Rações Dry";
-  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("hydra") || desc.includes("xixi") || desc.includes("areia")) {
+  } else if (desc.includes("shampoo") || desc.includes("sabao") || desc.includes("sabão") || desc.includes("desinfetante") || desc.includes("hydra") || desc.includes("xixi")) {
     setorDetectado = "Higiene e Limpeza";
   } else if (desc.includes("vermifugo") || desc.includes("vermífugo") || desc.includes("ectocid") || desc.includes("marboxleish") || desc.includes("lactobac") || desc.includes("glicol")) {
     setorDetectado = "Farmácia e Medicamentos";
