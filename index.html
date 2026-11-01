@@ -1021,8 +1021,8 @@ function renderizarTabelaBanco() {
     String(c.codigo || "").toLowerCase().includes(busca) || String(c.descricao || "").toLowerCase().includes(busca)
   ).sort((a,b) => {
     const da = String(a.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
-    const db = String(b.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
-    return da - db || String(a.descricao || "").localeCompare(String(b.descricao || ""), "pt-BR");
+    const descricaoB = String(b.descricao || "").trim().toLowerCase() === "produto sem descrição" ? 1 : 0;
+    return da - descricaoB || String(a.descricao || "").localeCompare(String(b.descricao || ""), "pt-BR");
   });
   tbody.innerHTML = "";
   if (filtrados.length === 0) {
@@ -1774,6 +1774,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 // Mesmo transporte estável usado no ScanCheck: long polling ajuda em redes e navegadores que bloqueiam WebChannel.
 const firestoreDb = initializeFirestore(app, { experimentalForceLongPolling: true });
+// Alias de compatibilidade para qualquer rotina legada que ainda consulte "db".
+const db = firestoreDb;
+window.db = firestoreDb;
 const allowed = {
   "correiajeisaa@gmail.com": "MASTER",
   "petcamp.novaodessa@gmail.com": "STORE"
@@ -1818,6 +1821,7 @@ async function seedCollection(name, localItems, remoteDocs) {
 async function startCloud(user) {
   const productsRef=collection(firestoreDb,"checkprodut_produtos");
   const catalogRef=collection(firestoreDb,"checkprodut_catalogo");
+  status.textContent="Conectando ao Firestore...";
   const [pSnap,cSnap]=await Promise.all([getDocs(productsRef),getDocs(catalogRef)]);
   const localP=JSON.parse(localStorage.getItem("checkprodut_produtos_v8")||"[]");
   const localC=JSON.parse(localStorage.getItem("checkprodut_catalogo_v8")||"[]");
@@ -1826,8 +1830,8 @@ async function startCloud(user) {
   // Catálogo é compartilhado: o MASTER recupera o cache local quando ele contém mais
   // registros que a nuvem. A chave determinística evita duplicação entre aparelhos/importações.
   if(role==="MASTER" && localC.length>cloudC.length) {
+    status.textContent="Enviando catálogo deste aparelho para a nuvem ("+localC.length+" itens)...";
     cloudC=await seedCollection("checkprodut_catalogo",localC,cloudC);
-    status.textContent="Recuperando catálogo local: "+cloudC.length+" itens...";
   }
   localStorage.setItem("checkprodut_catalogo_v8",JSON.stringify(cloudC));
   window.aplicarDadosDaNuvem(cloudP,cloudC);
@@ -1841,7 +1845,7 @@ async function startCloud(user) {
     window.aplicarDadosDaNuvem(null,rows);
     window.renderizarTabelaBanco?.();
   },err=>{status.textContent="Erro ao sincronizar catálogo";console.error(err);});
-  status.textContent="Nuvem conectada · sincronização ativa";
+  status.textContent="Nuvem conectada · "+cloudC.length+" itens no catálogo · sincronização ativa";
 }
 window.CheckProdutCloud = {
   saveProducts: async rows => {
