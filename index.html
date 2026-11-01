@@ -720,7 +720,8 @@ function mostrarStatusDescricao(texto, erro=false) {
 // quando a base retorna um nome de produto utilizável.
 // Cadastro de referência conferido por EAN. Prioridade sobre descrições genéricas/importadas.
 const descricoesVerificadasEAN = {
-  "7896181215387": "Ração Royal Canin Veterinary Diet Gastrointestinal Feline S/O para Gatos Adultos - 1,5 kg"
+  "7896181215387": "Ração Royal Canin Veterinary Diet Gastrointestinal Feline S/O para Gatos Adultos - 1,5 kg",
+  "7897348201007": "Ração PremieR Fórmula para Cães Adultos de Raças Pequenas sabor Frango - 2,5 kg"
 };
 function descricaoVerificadaPorEAN(ean) {
   return descricoesVerificadasEAN[String(ean || "").replace(/\\s+/g, "").trim()] || "";
