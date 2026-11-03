@@ -453,8 +453,9 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
         <label style="display:flex;align-items:center;gap:7px;margin:0;"><input type="checkbox" id="selecionarTodosRetirada" style="width:auto;" onchange="selecionarTodosRetirada(this.checked)"> Selecionar todos</label>
         <input id="responsavelRetiradaLote" placeholder="Nome do responsável pela retirada" style="flex:1;min-width:220px;">
         <button type="button" class="primary" onclick="marcarRetiradaLote()">Confirmar retirada dos selecionados</button>
+        <button type="button" class="outline" onclick="marcarNaoEncontradoLote()">Marcar selecionados como "Não achei"</button>
       </div>
-      <small class="subtitle" id="contadorRetiradaLote">Selecione os produtos que foram retirados.</small>
+      <small class="subtitle" id="contadorRetiradaLote">Selecione os produtos para retirada ou para registrar como não encontrados.</small>
     </div>
     <div id="resumoListaProdutos" class="resumo-lista"></div>
   </section>
@@ -1750,6 +1751,55 @@ function selecionarTodosRetirada(checked){
     if(item)cb.checked=checked&&retiradasSelecionadas.has(String(item.id));
   });
   atualizarContadorRetiradaLote();
+}
+async function marcarNaoEncontradoLote(){
+  const selecionados=[...retiradasSelecionadas]
+    .map(id=>produtos.find(p=>String(p.id)===id))
+    .filter(p=>p&&!p.retiradoVenda&&!p.naoEncontrado);
+  const nome=document.getElementById("responsavelRetiradaLote").value.trim();
+  if(!nome){
+    alert("Informe o nome do funcionário que conferiu os produtos.");
+    document.getElementById("responsavelRetiradaLote").focus();
+    return;
+  }
+  if(!selecionados.length){
+    alert("Nenhum produto válido está selecionado. Marque os produtos e tente novamente.");
+    return;
+  }
+  if(!window.CheckProdutCloud?.isReady?.()){
+    alert("A nuvem ainda não está conectada. Aguarde antes de registrar os produtos como não encontrados.");
+    return;
+  }
+  const totalUnidades=selecionados.reduce((s,p)=>s+Math.max(0,Number(p.quantidade)||1),0);
+  if(!confirm("Conferência final: "+selecionados.length+" produto(s), "+totalUnidades+" unidade(s).\\nFuncionário responsável: "+nome+"\\n\\nConfirma que todos foram procurados e não encontrados? Eles sairão da lista de retirada e irão para 'Não achei'."))
+    return;
+  const agora=new Date().toISOString();
+  const anteriores=selecionados.map(p=>({
+    p,naoEncontrado:p.naoEncontrado,dataNaoEncontrado:p.dataNaoEncontrado,
+    funcionarioNaoEncontrado:p.funcionarioNaoEncontrado
+  }));
+  selecionados.forEach(p=>{
+    p.naoEncontrado=true;
+    p.dataNaoEncontrado=agora;
+    p.funcionarioNaoEncontrado=nome;
+  });
+  try{
+    await window.CheckProdutCloud.saveProducts(produtos);
+    retiradasSelecionadas.clear();
+    await salvar(false);
+    atualizarResumoPainel();
+    alert(selecionados.length+" produto(s) ("+totalUnidades+" unidade(s)) registrados como 'Não achei' e sincronizados com a nuvem.");
+  }catch(err){
+    anteriores.forEach(x=>{
+      x.p.naoEncontrado=x.naoEncontrado;
+      x.p.dataNaoEncontrado=x.dataNaoEncontrado;
+      x.p.funcionarioNaoEncontrado=x.funcionarioNaoEncontrado;
+    });
+    await salvar(false);
+    atualizarResumoPainel();
+    console.error("Falha ao sincronizar produtos não encontrados:",err);
+    alert("O registro 'Não achei' NÃO foi confirmado na nuvem. Os produtos voltaram à lista.\\n\\n"+(err?.message||err));
+  }
 }
 async function marcarRetiradaLote(){
   const selecionados=[...retiradasSelecionadas].map(id=>produtos.find(p=>String(p.id)===id)).filter(p=>p&&!p.retiradoVenda&&!p.naoEncontrado);
