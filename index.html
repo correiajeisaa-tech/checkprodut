@@ -727,7 +727,28 @@ let processandoOCR = false;
 
 // Ponte segura para os dados recebidos da nuvem (mantém as variáveis originais do sistema).
 window.aplicarDadosDaNuvem = function(novosProdutos, novoCatalogo) {
-  if (Array.isArray(novosProdutos)) produtos = novosProdutos;
+  if (Array.isArray(novosProdutos)) {
+    // Preserva estados confirmados localmente enquanto o snapshot remoto ainda
+    // não os refletir. Evita que uma atualização antiga ressuscite pendências.
+    const estadosLocais = new Map(produtos.map(p => [String(p.id), p]));
+    produtos = novosProdutos.map(remoto => {
+      const local = estadosLocais.get(String(remoto.id));
+      if (!local) return remoto;
+      const mesclado = { ...remoto };
+      ["retiradoVenda","naoEncontrado","desconto15Solicitado","desconto30Solicitado","etiquetaAtualizada"].forEach(chave => {
+        if (local[chave] === true && remoto[chave] !== true) mesclado[chave] = true;
+      });
+      if (mesclado.retiradoVenda) {
+        mesclado.dataRetiradaVenda ||= local.dataRetiradaVenda;
+        mesclado.funcionarioRetirada ||= local.funcionarioRetirada;
+      }
+      if (mesclado.naoEncontrado) {
+        mesclado.dataNaoEncontrado ||= local.dataNaoEncontrado;
+        mesclado.funcionarioNaoEncontrado ||= local.funcionarioNaoEncontrado;
+      }
+      return mesclado;
+    });
+  }
   if (Array.isArray(novoCatalogo)) catalogoBase = novoCatalogo;
   localStorage.setItem(CHAVE_PRODUTOS, JSON.stringify(produtos));
   localStorage.setItem(CHAVE_BASE_CATALOGO, JSON.stringify(catalogoBase));
@@ -1773,14 +1794,21 @@ async function marcarRetirada(id) {
     alert("A retirada NÃO foi confirmada na nuvem. O produto continua pendente.\n\n"+(err?.message||err));
   }
 }
-async function marcarNaoEncontrado(id) {
+async async function marcarNaoEncontrado(id) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
   const resp=prompt("Nome do funcionário que procurou e não encontrou o produto:",p.funcionario||"");if(!resp||!resp.trim())return;
+  const anterior={naoEncontrado:p.naoEncontrado,dataNaoEncontrado:p.dataNaoEncontrado,funcionarioNaoEncontrado:p.funcionarioNaoEncontrado};
   p.naoEncontrado=true;p.dataNaoEncontrado=new Date().toISOString();p.funcionarioNaoEncontrado=resp.trim();
-  await salvar();
-  retiradasSelecionadas.delete(p);
-  atualizarResumoPainel();
-  alert("Produto movido para a pasta 'Não achei · provável venda / local não visível'.");
+  try {
+    await salvar();
+    retiradasSelecionadas.delete(String(p.id));
+    atualizarResumoPainel();
+    alert("Produto movido para a pasta 'Não achei · provável venda / local não visível'.");
+  } catch(err) {
+    Object.assign(p,anterior);
+    await salvar(false);
+    alert("Não foi possível sincronizar o status 'Não achei' com a nuvem. O produto voltou à lista de pendências.\n\n"+(err?.message||err));
+  }
 }
 async function marcarDescontoSolicitado(id,faixa) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||situacao(p).faixa!==Number(faixa)||!precisaSolicitarDesconto(p))return;
@@ -2338,10 +2366,25 @@ window.CheckProdutCloud = {
   },
   saveProducts: async rows => {
     if(!ready) throw new Error("Nuvem ainda não conectada; nenhum produto foi enviado.");
-    // Firestore limita cada WriteBatch a 500 operações.
+    // Atualização parcial: um cache antigo não pode apagar estados confirmados
+    // por outra sessão. Estados positivos são gravados; ausências/falsos são omitidos.
     for(let inicio=0;inicio<rows.length;inicio+=400) {
       const batch=writeBatch(firestoreDb);
-      rows.slice(inicio,inicio+400).forEach(item=>batch.set(doc(firestoreDb,"checkprodut_produtos",String(item.id)),item));
+      rows.slice(inicio,inicio+400).forEach(item=>{
+        const dados={...item};
+        ["retiradoVenda","naoEncontrado","desconto15Solicitado","desconto30Solicitado","etiquetaAtualizada"].forEach(chave=>{
+          if(item[chave] !== true) delete dados[chave];
+        });
+        if(item.retiradoVenda !== true) {
+          delete dados.dataRetiradaVenda;
+          delete dados.funcionarioRetirada;
+        }
+        if(item.naoEncontrado !== true) {
+          delete dados.dataNaoEncontrado;
+          delete dados.funcionarioNaoEncontrado;
+        }
+        batch.set(doc(firestoreDb,"checkprodut_produtos",String(item.id)),dados,{merge:true});
+      });
       await batch.commit();
     }
   },
