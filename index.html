@@ -1702,6 +1702,25 @@ function atualizarResumoPainel() {
     const val=document.createElement("span");val.textContent="Validade: "+formatarData(p.validade);
     const dias=document.createElement("span");dias.textContent="Dias: "+diasRestantes(p.validade);
     meta.append(qtd,val,dias);item.append(nome,cod,meta);
+    // Confirmação da solicitação diretamente no painel de 15% ou 30%.
+    if(painelResumoTipo===15||painelResumoTipo===30){
+      const faixa=Number(painelResumoTipo);
+      const acoesDesconto=document.createElement("div");
+      acoesDesconto.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;";
+      const btnDesconto=document.createElement("button");
+      btnDesconto.type="button";
+      btnDesconto.className="primary";
+      btnDesconto.textContent="✓ Já solicitei desconto "+faixa+"%";
+      btnDesconto.addEventListener("click",e=>{
+        e.stopPropagation();
+        marcarDescontoSolicitado(p.id,faixa).then(()=>{
+          atualizarResumoPainel();
+          renderizar();
+        });
+      });
+      acoesDesconto.appendChild(btnDesconto);
+      item.appendChild(acoesDesconto);
+    }
     if(painelResumoTipo==="RETIRAR"){
       const acoes=document.createElement("div");acoes.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;";
       const btnRetirado=document.createElement("button");btnRetirado.type="button";btnRetirado.className="danger";btnRetirado.textContent="Já retirei da prateleira";
