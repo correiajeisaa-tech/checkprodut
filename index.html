@@ -383,6 +383,8 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
       <a class="sidebar-link active" href="#dashboard"><span class="nav-icon">▦</span><span>Painel geral</span></a>
       <a class="sidebar-link" href="#cadastro"><span class="nav-icon">＋</span><span>Cadastrar produto</span></a>
       <a class="sidebar-link" href="#productSection"><span class="nav-icon">▤</span><span>Produtos acompanhados</span></a>
+      <button class="sidebar-link" type="button" onclick="abrirPastaNaoAchei()"><span class="nav-icon">📁</span><span>Não achei</span></button>
+      <button class="sidebar-link" type="button" onclick="buscarPorFuncionario()"><span class="nav-icon">⌕</span><span>Buscar por funcionário</span></button>
       <button class="sidebar-link" type="button" onclick="abrirHistoricoVencimentos()"><span class="nav-icon">◷</span><span>Histórico de retiradas</span></button>
       <button class="sidebar-link" type="button" onclick="abrirModalBanco()"><span class="nav-icon">▥</span><span>Banco de dados</span></button>
       <a class="sidebar-link" href="#painelImportacao"><span class="nav-icon">⇧</span><span>Importação manual</span></a>
@@ -1616,6 +1618,37 @@ function cancelarEdicao() {
   document.getElementById("autoSetorBadge").style.display = "none";
 }
 
+function abrirPastaNaoAchei(){
+  const secao=document.getElementById("productSection");
+  const filtro=document.getElementById("filtroSituacao");
+  if(!secao||!filtro)return;
+  filtro.value="NAO_ENCONTRADO";
+  document.getElementById("busca").value="";
+  document.getElementById("filtroFuncionario").value="";
+  document.getElementById("filtroSetor").value="";
+  filtroPainelAtual="TODOS";
+  setorFiltroAtual="TODOS";
+  renderizar();
+  secao.scrollIntoView({behavior:"smooth",block:"start"});
+  document.getElementById("busca")?.focus({preventScroll:true});
+}
+function buscarPorFuncionario(){
+  const nome=prompt("Digite o nome (ou parte do nome) do funcionário para localizar os registros:");
+  if(nome===null)return;
+  const termo=nome.trim();
+  if(!termo){alert("Digite um nome para realizar a busca.");return;}
+  const secao=document.getElementById("productSection");
+  document.getElementById("filtroSituacao").value="";
+  document.getElementById("filtroFuncionario").value="";
+  document.getElementById("filtroSetor").value="";
+  document.getElementById("busca").value=termo;
+  filtroPainelAtual="TODOS";
+  setorFiltroAtual="TODOS";
+  renderizar();
+  secao?.scrollIntoView({behavior:"smooth",block:"start"});
+  const total=document.querySelectorAll("#lista tr").length;
+  if(!total)alert("Nenhum registro encontrado para: "+termo+". Tente parte do nome ou confira a grafia.");
+}
 function renderizar() {
   const busca=(document.getElementById("busca")?.value||"").toLowerCase();
   const funcFiltro=document.getElementById("filtroFuncionario")?.value||"";
