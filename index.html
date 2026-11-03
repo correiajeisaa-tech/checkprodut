@@ -405,6 +405,7 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
   <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
     <div id="cloudBar"><strong class="loja-nome">PetCamp Nova Odessa</strong><span id="cloudStatus" class="cloud-interno">Conectando...</span><strong id="cloudUser" class="cloud-interno"></strong><button type="button" class="secondary" onclick="window.CheckProdutCloud?.logout()">Sair</button></div>
     <button type="button" class="secondary" onclick="abrirModalBanco()">📂 Ver Banco de Dados (${catalogoBase.length} itens)</button>
+    <button type="button" class="primary" onclick="exportarTudoCheckProdut()">⬇ Exportar tudo (Excel)</button>
     <button type="button" class="secondary" onclick="abrirColagemEspecial()">📋 Colar especial</button>
     <label for="relatorioFile" class="btn-upload secondary" style="cursor:pointer;">
       📥 Carregar Relatório da Loja (Excel, CSV ou PDF)
@@ -559,6 +560,7 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
         <div class="produtos-acoes-topo">
           <span class="subtitle">Lista de produtos</span>
           <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
+          <button type="button" class="primary" onclick="exportarProdutosExcel()">Exportar Excel</button>
         </div>
     <details class="filtros-recolhiveis">
       <summary class="filtros-resumo"><span>Filtros e setores</span><span class="filtros-seta" aria-hidden="true">⌄</span></summary>
@@ -607,6 +609,7 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
     <div class="modal-head">
       <h4>Banco de Dados Carregado (<span id="totalBancoCount">0</span> itens)</h4>
       <div style="display:flex; gap:6px;">
+        <button type="button" class="secondary" onclick="exportarBancoDados()">⬇ Exportar banco</button>
         <button type="button" class="danger master-only" onclick="limparBancoDados()">🗑️ Limpar Banco</button>
         <button type="button" class="outline icon-btn" onclick="fecharModalBanco()">✕</button>
       </div>
@@ -639,6 +642,9 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
     <div class="modal-head">
       <div><h4>Histórico de produtos retirados da prateleira</h4><small class="subtitle">Registros dos últimos 30 dias, com funcionário e data da retirada.</small></div>
       <button type="button" class="outline icon-btn" onclick="fecharHistoricoRetiradas()">✕</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+      <button type="button" class="primary" onclick="exportarHistoricoRetiradas()">⬇ Exportar histórico</button>
     </div>
     <div class="table-wrap">
       <table style="min-width:850px;">
@@ -2269,6 +2275,62 @@ async function fecharScannerBarcode() {
   document.getElementById("reader").innerHTML="";
 }
 
+function baixarPlanilhaCheckProdut(nomeArquivo, abas) {
+  if(typeof XLSX==="undefined"){alert("O recurso de Excel não carregou. Atualize a página e tente novamente.");return;}
+  const wb=XLSX.utils.book_new();
+  abas.forEach(({nome,linhas,colunas})=>{
+    const ws=XLSX.utils.aoa_to_sheet(linhas);
+    if(colunas)ws["!cols"]=colunas.map(wch=>({wch}));
+    if(linhas.length>1)ws["!autofilter"]={ref:"A1:"+String.fromCharCode(64+Math.min(linhas[0].length,26))+linhas.length};
+    XLSX.utils.book_append_sheet(wb,ws,nome.slice(0,31));
+  });
+  XLSX.writeFile(wb,nomeArquivo);
+}
+function linhasProdutosExportacao(lista) {
+  const linhas=[["GTIN","PRODUTO","PESO","SETOR","QUANTIDADE","VALIDADE","DIAS RESTANTES","SITUAÇÃO","DESCONTO 15%","DATA 15%","FUNCIONÁRIO 15%","DESCONTO 30%","DATA 30%","FUNCIONÁRIO 30%","RETIRADO","DATA RETIRADA","RESPONSÁVEL RETIRADA","NÃO ACHEI","DATA NÃO ACHEI","RESPONSÁVEL NÃO ACHEI","RESPONSÁVEL CADASTRO"]];
+  lista.forEach(p=>linhas.push([
+    p.barcode||"",p.descricao||"",p.peso||"",p.setor||"",Number(p.quantidade)||0,
+    formatarData(p.validade),diasRestantes(p.validade),p.naoEncontrado?"Não achei":p.retiradoVenda?"Retirado da prateleira":p.desconto30Solicitado?"Desconto 30% solicitado":p.desconto15Solicitado?"Desconto 15% solicitado":faixaPendente(p)===15?"Pendente 15%":faixaPendente(p)===30?"Pendente 30%":situacao(p).texto,
+    p.desconto15Solicitado?"Sim":"Não",p.dataDesconto15Solicitado||"",p.funcionarioDesconto15||"",
+    p.desconto30Solicitado?"Sim":"Não",p.dataDesconto30Solicitado||"",p.funcionarioDesconto30||"",
+    p.retiradoVenda?"Sim":"Não",p.dataRetiradaVenda||"",p.funcionarioRetirada||"",
+    p.naoEncontrado?"Sim":"Não",p.dataNaoEncontrado||"",p.funcionarioNaoEncontrado||"",p.funcionario||""
+  ]));
+  return linhas;
+}
+function exportarTudoCheckProdut() {
+  const data=new Date().toISOString().slice(0,10);
+  const retirados=produtos.filter(p=>p.retiradoVenda);
+  const naoAchados=produtos.filter(p=>p.naoEncontrado);
+  const pend15=produtos.filter(p=>faixaPendente(p)===15);
+  const pend30=produtos.filter(p=>faixaPendente(p)===30);
+  const solicitados=produtos.filter(p=>p.desconto15Solicitado||p.desconto30Solicitado);
+  const historico=produtos.filter(p=>p.retiradoVenda&&p.dataRetiradaVenda);
+  const catalogo=[["GTIN","DESCRIÇÃO","VALIDADE ORIGEM","QUANTIDADE","ORIGEM"]];
+  catalogoBase.forEach(c=>catalogo.push([c.codigo||"",c.descricao||"",c.validadeOrigem||"",Number(c.quantidade)||0,c.origemDescricao||""]));
+  baixarPlanilhaCheckProdut("CheckProdut_Exportacao_Completa_"+data+".xlsx",[
+    {nome:"Todos os produtos",linhas:linhasProdutosExportacao(produtos),colunas:[18,42,12,22,12,14,14,28,12,22,24,12,22,24,12,22,24,12,22,24,22]},
+    {nome:"Pendentes 15%",linhas:linhasProdutosExportacao(pend15)},
+    {nome:"Pendentes 30%",linhas:linhasProdutosExportacao(pend30)},
+    {nome:"Descontos solicitados",linhas:linhasProdutosExportacao(solicitados)},
+    {nome:"Retirar da prateleira",linhas:linhasProdutosExportacao(produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;}))},
+    {nome:"Retirados",linhas:linhasProdutosExportacao(retirados)},
+    {nome:"Nao encontrados",linhas:linhasProdutosExportacao(naoAchados)},
+    {nome:"Historico retiradas",linhas:[["PRODUTO","GTIN","VALIDADE","SETOR","RESPONSÁVEL","DATA"],...historico.map(p=>[p.descricao||"",p.barcode||"",formatarData(p.validade),p.setor||"",p.funcionarioRetirada||"",p.dataRetiradaVenda||""])]},
+    {nome:"Banco de dados",linhas:catalogo}
+  ]);
+}
+function exportarProdutosExcel(){baixarPlanilhaCheckProdut("CheckProdut_Produtos_"+new Date().toISOString().slice(0,10)+".xlsx",[{nome:"Produtos acompanhados",linhas:linhasProdutosExportacao(produtos)}]);}
+function exportarBancoDados(){
+  const busca=(document.getElementById("buscaBanco")?.value||"").toLowerCase();
+  const lista=catalogoBase.filter(c=>String(c.codigo||"").toLowerCase().includes(busca)||String(c.descricao||"").toLowerCase().includes(busca));
+  baixarPlanilhaCheckProdut("CheckProdut_Banco_Dados_"+new Date().toISOString().slice(0,10)+".xlsx",[{nome:"Banco de dados",linhas:[["GTIN","DESCRIÇÃO","VALIDADE ORIGEM","QUANTIDADE","ORIGEM"],...lista.map(c=>[c.codigo||"",c.descricao||"",c.validadeOrigem||"",Number(c.quantidade)||0,c.origemDescricao||""])]}]);
+}
+function exportarHistoricoRetiradas(){
+  const agora=Date.now(),limite=agora-30*86400000;
+  const lista=produtos.filter(p=>{const t=p.dataRetiradaVenda?new Date(p.dataRetiradaVenda).getTime():NaN;return p.retiradoVenda&&Number.isFinite(t)&&t>=limite&&t<=agora;}).sort((a,b)=>new Date(b.dataRetiradaVenda)-new Date(a.dataRetiradaVenda));
+  baixarPlanilhaCheckProdut("CheckProdut_Historico_Retiradas_"+new Date().toISOString().slice(0,10)+".xlsx",[{nome:"Histórico retiradas",linhas:[["PRODUTO","GTIN","VALIDADE","SETOR","RESPONSÁVEL","DATA DA RETIRADA"],...lista.map(p=>[p.descricao||"",p.barcode||"",formatarData(p.validade),p.setor||"",p.funcionarioRetirada||"",p.dataRetiradaVenda||""])]}]);
+}
 function exportarCSV() {
   if (!produtos.length) { alert("Sem dados para exportar."); return; }
   let csv = "\uFEFFGTIN;Produto;Peso;Setor;Qtd;Validade;Dias;Situação;Responsável\n";
