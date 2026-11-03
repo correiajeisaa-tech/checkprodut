@@ -1164,19 +1164,31 @@ async function pesquisarDescricaoNaInternet(ean) {
 function atualizarPesoPorDescricao(descricao) {
   const campoPeso = document.getElementById("peso");
   if (!campoPeso) return "";
-  const texto = String(descricao || "").replace(/,/g, ".");
-  // Identifica apresentações como 1,5 kg, 500 g, 500 ml, 2 L ou 10.1kg.
-  const achado = texto.match(/\b(\d+(?:\.\d+)?)\s*(kg|quilo(?:s)?|g|gr|gramas?|ml|mL|l|litros?)\b/i);
+
+  // Reconhece apresentações mesmo quando vêm coladas ao nome (ex.: RACAO15KG),
+  // com vírgula decimal, hífen ou embalagem múltipla (ex.: 2x10kg).
+  const texto = String(descricao || "").replace(/,/g, ".").replace(/\s+/g, " ").trim();
+  const unidades = "(?:kg|quilo(?:s)?|gr(?:amas?)?|g|ml|l|litro(?:s)?)";
+  const multiplo = texto.match(new RegExp("(\\d+)\\s*[x×]\\s*(\\d+(?:\\.\\d+)?)\\s*(" + unidades + ")\\b", "i"));
+  const simples = texto.match(new RegExp("(\\d+(?:\\.\\d+)?)\\s*(" + unidades + ")\\b", "i"));
+  const achado = multiplo || simples;
   if (!achado) return "";
-  let valor = achado[1].replace(/\.0+$/, "");
-  let unidade = achado[2].toLowerCase();
+
+  let valor, unidade;
+  if (multiplo) {
+    valor = multiplo[1] + "x" + multiplo[2].replace(/\\.0+$/, "");
+    unidade = multiplo[3].toLowerCase();
+  } else {
+    valor = achado[1].replace(/\\.0+$/, "");
+    unidade = achado[2].toLowerCase();
+  }
   if (unidade === "quilo" || unidade === "quilos") unidade = "kg";
   else if (unidade === "gr" || unidade === "grama" || unidade === "gramas") unidade = "g";
-  else if (unidade === "litro" || unidade === "litros") unidade = "L";
-  else if (unidade === "l") unidade = "L";
+  else if (unidade === "litro" || unidade === "litros" || unidade === "l") unidade = "L";
   else if (unidade === "ml") unidade = "ml";
   else if (unidade === "kg") unidade = "kg";
   else unidade = "g";
+
   campoPeso.value = valor + unidade;
   return campoPeso.value;
 }
