@@ -561,8 +561,8 @@ body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
       <div class="produtos-conteudo">
         <div class="produtos-acoes-topo">
           <span class="subtitle">Lista de produtos</span>
-          <button type="button" class="secondary" onclick="exportarCSV()">Exportar CSV</button>
-          <button type="button" class="primary" onclick="exportarProdutosExcel()">Exportar Excel</button>
+          <button type="button" class="secondary" onclick="exportarCSV()">⬇ Exportar resultado (CSV)</button>
+          <button type="button" class="primary" onclick="exportarProdutosExcel()">⬇ Exportar resultado (Excel)</button>
         </div>
     <details class="filtros-recolhiveis">
       <summary class="filtros-resumo"><span>Filtros e setores</span><span class="filtros-seta" aria-hidden="true">⌄</span></summary>
@@ -692,6 +692,7 @@ const CHAVE_PRODUTOS = "checkprodut_produtos_v8";
 const CHAVE_BASE_CATALOGO = "checkprodut_catalogo_v8";
 
 let produtos = JSON.parse(localStorage.getItem(CHAVE_PRODUTOS) || "[]");
+let produtosVisiveis = [...produtos];
 let catalogoBase = JSON.parse(localStorage.getItem(CHAVE_BASE_CATALOGO) || "[]");
 let setorFiltroAtual = "TODOS";
 let filtroPainelAtual = "TODOS";
@@ -1668,10 +1669,10 @@ function renderizar() {
   const setorFiltro=document.getElementById("filtroSetor")?.value||"";
   const situacaoFiltro=document.getElementById("filtroSituacao")?.value||"";
   const filtrados=produtos.filter(p=>{
-    const matchBusca=[p.barcode,p.descricao,p.setor,p.funcionario,p.funcionarioRetirada,p.funcionarioNaoEncontrado].join(" ").toLowerCase().includes(busca);
+    const matchBusca=[p.barcode,p.descricao,p.setor,p.funcionario,p.funcionarioTroca,p.funcionarioRetirada,p.funcionarioNaoEncontrado,p.funcionarioDesconto15,p.funcionarioDesconto30].join(" ").toLowerCase().includes(busca);
     const dias=diasRestantes(p.validade),faixa=faixaPendente(p);
     const matchSetor=(!setorFiltro||p.setor===setorFiltro)&&(setorFiltroAtual==="TODOS"||p.setor===setorFiltroAtual);
-    const matchFunc=!funcFiltro||[p.funcionario,p.funcionarioTroca,p.funcionarioRetirada,p.funcionarioNaoEncontrado].includes(funcFiltro);
+    const matchFunc=!funcFiltro||[p.funcionario,p.funcionarioTroca,p.funcionarioRetirada,p.funcionarioNaoEncontrado,p.funcionarioDesconto15,p.funcionarioDesconto30].includes(funcFiltro);
     const matchPainel=filtroPainelAtual==="TODOS"||(filtroPainelAtual==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(faixa===filtroPainelAtual&&precisaSolicitarDesconto(p)));
     const matchSituacao=!situacaoFiltro||(situacaoFiltro==="VENCIDOS"&&dias<0&&!p.retiradoVenda&&!p.naoEncontrado)||(situacaoFiltro==="RETIRAR"&&dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado)||(situacaoFiltro==="RETIRADOS"&&!!p.retiradoVenda)||(situacaoFiltro==="NAO_ENCONTRADO"&&!!p.naoEncontrado)||(situacaoFiltro==="PENDENTE"&&precisaSolicitarDesconto(p));
     return matchBusca&&matchSetor&&matchFunc&&matchPainel&&matchSituacao;
@@ -1685,6 +1686,7 @@ function renderizar() {
   const tbody=document.getElementById("lista");tbody.innerHTML="";
   document.getElementById("vazio").style.display=filtrados.length?"none":"block";
   filtrados.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999));
+  produtosVisiveis=[...filtrados];
   filtrados.forEach(p=>{
     const dias=diasRestantes(p.validade),faixa=faixaPendente(p);
     const avisoRetirada=dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado;
@@ -2382,7 +2384,11 @@ function exportarTudoCheckProdut() {
     {nome:"Banco de dados",linhas:catalogo}
   ]);
 }
-function exportarProdutosExcel(){baixarPlanilhaCheckProdut("CheckProdut_Produtos_"+new Date().toISOString().slice(0,10)+".xlsx",[{nome:"Produtos acompanhados",linhas:linhasProdutosExportacao(produtos)}]);}
+function exportarProdutosExcel(){
+  const lista=produtosVisiveis||[];
+  if(!lista.length){alert("Não há registros no resultado atual para exportar.");return;}
+  baixarPlanilhaCheckProdut("CheckProdut_Filtrados_"+new Date().toISOString().slice(0,10)+".xlsx",[{nome:"Resultado filtrado",linhas:linhasProdutosExportacao(lista)}]);
+}
 function exportarBancoDados(){
   const busca=(document.getElementById("buscaBanco")?.value||"").toLowerCase();
   const lista=catalogoBase.filter(c=>String(c.codigo||"").toLowerCase().includes(busca)||String(c.descricao||"").toLowerCase().includes(busca));
@@ -2394,15 +2400,17 @@ function exportarHistoricoRetiradas(){
   baixarPlanilhaCheckProdut("CheckProdut_Historico_Retiradas_"+new Date().toISOString().slice(0,10)+".xlsx",[{nome:"Histórico retiradas",linhas:[["PRODUTO","GTIN","VALIDADE","SETOR","RESPONSÁVEL","DATA DA RETIRADA"],...lista.map(p=>[p.descricao||"",p.barcode||"",formatarData(p.validade),p.setor||"",p.funcionarioRetirada||"",p.dataRetiradaVenda||""])]}]);
 }
 function exportarCSV() {
-  if (!produtos.length) { alert("Sem dados para exportar."); return; }
+  const lista=produtosVisiveis||[];
+  if (!lista.length) { alert("Não há registros no resultado atual para exportar."); return; }
   let csv = "\uFEFFGTIN;Produto;Peso;Setor;Qtd;Validade;Dias;Situação;Responsável\n";
-  produtos.forEach(p => {
-    csv += `"${p.barcode}";"${p.descricao}";"${p.peso}";"${p.setor}";${p.quantidade};"${formatarData(p.validade)}";${diasRestantes(p.validade)};"${situacao(p).texto}";"${p.funcionario}"\n`;
+  lista.forEach(p => {
+    const campos=[p.barcode,p.descricao,p.peso,p.setor,p.quantidade,formatarData(p.validade),diasRestantes(p.validade),situacao(p).texto,p.funcionario];
+    csv += campos.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(";")+"\n";
   });
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `Validades_Petcamp_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `Validades_Petcamp_Filtradas_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 
