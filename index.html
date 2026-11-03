@@ -1834,7 +1834,7 @@ function selecionarTodosRetirada(checked){
   });
   atualizarContadorRetiradaLote();
 }
-async async function marcarNaoEncontradoLote(){
+async function marcarNaoEncontradoLote(){
   const selecionados=[...retiradasSelecionadas]
     .map(id=>produtos.find(p=>String(p.id)===id))
     .filter(p=>p&&!p.retiradoVenda&&!p.naoEncontrado);
