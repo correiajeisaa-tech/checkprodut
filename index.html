@@ -258,7 +258,99 @@ td{padding:13px 11px;color:#354a40;border-bottom:1px solid #edf2ee;font-size:12p
 @media(max-width:650px){header{padding:14px 13px;gap:13px}.brand h1{font-size:22px}.brand small{font-size:8px;letter-spacing:1px}header>div:last-child{width:100%;align-items:stretch}header>div:last-child>button,header>div:last-child>label{justify-content:center}#cloudBar{width:100%;justify-content:space-between}main{margin:17px auto;padding:0 11px}.welcome{align-items:flex-start;gap:12px}.welcome h2{font-size:23px}.cards{gap:9px}.card{min-height:112px;padding:14px 13px;border-radius:14px}.card small{font-size:9px}.number{margin-top:9px;font-size:29px}.panel{padding:15px;border-radius:14px}.panel-head{align-items:flex-start}.form-grid{grid-template-columns:1fr}.tabs-setores{grid-template-columns:repeat(2,minmax(0,1fr))}.produtos-resumo{padding:15px}.produtos-conteudo{padding:13px}.form-actions{flex-wrap:wrap}.form-actions button{flex:1}#authGate .auth-card{padding:26px 22px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
 
-  </style>
+  
+/* ── CHECKPRODUT 2026 · NOVA ESTRUTURA DE NAVEGAÇÃO ── */
+:root{--cp-ink:#172d27;--cp-deep:#123b32;--cp-green:#176b50;--cp-mint:#e7f4eb;--cp-bg:#f4f7f5;--cp-line:#e3ebe5;--cp-muted:#718078}
+html{scroll-behavior:smooth;scroll-padding-top:92px}
+body{margin:0!important;background:#f4f7f5!important;color:var(--cp-ink)}
+.app-shell{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr)}
+.app-sidebar{position:sticky;top:0;height:100vh;min-height:600px;padding:25px 16px 18px;background:linear-gradient(180deg,#123b32 0%,#102f29 100%);color:#fff;display:flex;flex-direction:column;z-index:120;box-shadow:8px 0 28px rgba(18,59,50,.08)}
+.sidebar-brand{display:flex;align-items:center;gap:11px;padding:3px 8px 28px;border-bottom:1px solid rgba(255,255,255,.13)}
+.sidebar-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(145deg,#c8f0d8,#75c99d);color:#123b32;font-weight:950;font-size:15px;letter-spacing:-1px;box-shadow:0 7px 18px #061e1744}
+.sidebar-brand strong{display:block;font-size:16px;letter-spacing:-.5px}.sidebar-brand small{display:block;margin-top:3px;color:#a9c9b9;font-size:8px;font-weight:800;letter-spacing:1.2px}
+.sidebar-caption{padding:25px 10px 10px;color:#86aa98;font-size:9px;font-weight:850;letter-spacing:1.35px}
+.sidebar-nav{display:grid;gap:6px}
+.sidebar-link{width:100%;display:flex;align-items:center;gap:12px;padding:12px 11px;border:1px solid transparent;border-radius:10px;background:transparent;color:#d8e9df;text-decoration:none;text-align:left;font:700 12px system-ui;cursor:pointer;transition:background .18s,border .18s,color .18s}
+.sidebar-link:hover{background:rgba(255,255,255,.08);color:#fff;transform:none;box-shadow:none}
+.sidebar-link.active{background:linear-gradient(100deg,rgba(145,220,177,.2),rgba(145,220,177,.08));border-color:rgba(165,226,189,.22);color:#fff;box-shadow:inset 3px 0 #9de0b7}
+.nav-icon{width:23px;height:23px;display:grid;place-items:center;border-radius:7px;background:rgba(255,255,255,.09);font-size:16px;color:#b9e8cb}
+.sidebar-bottom{display:flex;align-items:center;gap:10px;margin-top:auto;padding:14px 10px 5px;border-top:1px solid rgba(255,255,255,.13)}
+.sidebar-status-dot{width:9px;height:9px;border-radius:50%;background:#6dd59a;box-shadow:0 0 0 4px rgba(109,213,154,.12)}
+.sidebar-bottom strong{display:block;font-size:10px;color:#e6f4eb}.sidebar-bottom small{display:block;margin-top:3px;color:#9db9a9;font-size:10px}
+.app-main{min-width:0}
+.app-main>header{position:sticky;top:0;z-index:100;padding:13px clamp(16px,2.5vw,38px);background:rgba(255,255,255,.94);color:#1b3d31;border:0;border-bottom:1px solid #e2ebe5;box-shadow:0 4px 18px rgba(25,60,44,.055);backdrop-filter:blur(14px)}
+.app-main>header .brand .logo{width:39px;height:39px;border-radius:11px;background:linear-gradient(145deg,#1b7155,#2c9a70);box-shadow:none}
+.app-main>header .brand h1{color:#173e32;font-size:21px}.app-main>header .brand h1 span{color:#26845e}.app-main>header .brand small{color:#71877a;font-size:8px}
+#cloudBar{color:#52695c!important}#cloudBar .loja-nome{color:#234d3b!important}
+.app-main>header button,.app-main>header label.btn-upload{min-height:36px;padding:8px 11px;font-size:11px}
+.app-main>main{width:min(1500px,100%);max-width:none;margin:0 auto;padding:27px clamp(17px,2.7vw,42px) 30px}
+.dashboard-section{margin-bottom:21px}
+.welcome{margin-bottom:17px;padding:4px 1px 7px}
+.welcome h2{font-size:27px;font-weight:850;letter-spacing:-1px;color:#183f32}
+.welcome .subtitle{font-size:12px;color:#7b8981}
+.welcome .primary{padding:11px 17px}
+.cards{gap:14px;margin-bottom:16px}
+.card{min-height:125px;padding:19px 19px 17px;border:1px solid #e2ebe4;border-radius:15px;background:#fff;box-shadow:0 5px 18px rgba(25,66,47,.045)}
+.card:after{content:"";position:absolute;right:15px;top:15px;width:28px;height:28px;border-radius:9px;background:#edf6ef}
+.card.blue:after{background:#eaf3f8}.card.orange:after{background:#fff4e4}.card.red:after{background:#fff0ef}.card.green:after{background:#eaf6ed}
+.card small{max-width:80%;font-size:10px;letter-spacing:.55px;line-height:1.5;color:#78877e}
+.card .number{font-size:36px;margin-top:15px;font-weight:900;letter-spacing:-1.5px}
+#painelProdutosResumo{border:1px solid #dce9df;background:#fbfefb}
+#cadastro{scroll-margin-top:92px;padding:22px;border-radius:16px}
+#cadastro .panel-head{margin-bottom:19px}
+#cadastro .panel-head h3{font-size:18px}
+#cadastro .form-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+#cadastro input,#cadastro select{min-height:45px;border-radius:9px}
+#cadastro .form-actions{padding-top:14px;border-top:1px solid #edf2ee}
+#cadastro #btnSalvar{min-width:160px}
+#productSection{padding:0;border-radius:16px;overflow:hidden}
+#productSection>.produtos-recolhivel>.produtos-resumo{padding:20px 22px;background:linear-gradient(110deg,#fff,#f8fcf9)}
+#productSection .produtos-resumo strong{font-size:16px}
+#productSection .produtos-conteudo{padding:19px 21px 22px}
+#productSection .table-wrap{border:1px solid #e6eee8;border-radius:12px}
+#productSection table{min-width:900px}
+#productSection th{padding:14px 12px;background:#f4f8f5}
+#productSection td{padding:13px 12px}
+#painelImportacao{border-style:dashed;background:#fbfdfb}
+.footer{padding:28px 12px;color:#8a9890}
+.modal{backdrop-filter:blur(5px)}
+@media(max-width:1050px){
+ .app-shell{grid-template-columns:210px minmax(0,1fr)}
+ .app-sidebar{padding-left:12px;padding-right:12px}
+ .app-main>header{align-items:flex-start}
+ .app-main>header>div:last-child{justify-content:flex-end}
+ #cadastro .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ .app-shell{display:block}
+ .app-sidebar{position:sticky;top:0;height:auto;min-height:0;padding:9px 11px;display:block;box-shadow:0 5px 18px rgba(18,59,50,.12)}
+ .sidebar-brand{display:none}
+ .sidebar-caption{display:none}
+ .sidebar-nav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 0 2px}
+ .sidebar-nav::-webkit-scrollbar{display:none}
+ .sidebar-link{width:auto;flex:0 0 auto;gap:7px;padding:9px 11px;font-size:10px;white-space:nowrap}
+ .sidebar-link.active{box-shadow:inset 0 -3px #9de0b7}
+ .nav-icon{width:19px;height:19px;font-size:13px}
+ .sidebar-bottom{display:none}
+ .app-main>header{position:relative;padding:12px;gap:10px}
+ .app-main>header>div:last-child{width:100%;justify-content:flex-start}
+ .app-main>header>div:last-child>label{max-width:100%}
+ .app-main>main{padding:20px 12px 25px}
+ .welcome h2{font-size:23px}
+ #cadastro{padding:16px}
+ #cadastro .form-grid{grid-template-columns:1fr}
+ #productSection .produtos-conteudo{padding:13px}
+}
+@media(max-width:430px){
+ .cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .card{min-height:112px;padding:13px}
+ .card small{font-size:9px}
+ .card .number{font-size:30px}
+ .app-main>header .brand h1{font-size:19px}
+ .app-main>header .brand small{font-size:7px}
+}
+
+</style>
 </head>
 <body>
 
@@ -278,6 +370,29 @@ td{padding:13px 11px;color:#354a40;border-bottom:1px solid #edf2ee;font-size:12p
   </form>
 </div>
 
+
+
+<div class="app-shell">
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-mark">CP</div>
+      <div><strong>CheckProdut</strong><small>GESTÃO DE VALIDADE</small></div>
+    </div>
+    <div class="sidebar-caption">MENU PRINCIPAL</div>
+    <nav class="sidebar-nav" aria-label="Navegação principal">
+      <a class="sidebar-link active" href="#dashboard"><span class="nav-icon">▦</span><span>Painel geral</span></a>
+      <a class="sidebar-link" href="#cadastro"><span class="nav-icon">＋</span><span>Cadastrar produto</span></a>
+      <a class="sidebar-link" href="#productSection"><span class="nav-icon">▤</span><span>Produtos acompanhados</span></a>
+      <button class="sidebar-link" type="button" onclick="abrirHistoricoVencimentos()"><span class="nav-icon">◷</span><span>Histórico de retiradas</span></button>
+      <button class="sidebar-link" type="button" onclick="abrirModalBanco()"><span class="nav-icon">▥</span><span>Banco de dados</span></button>
+      <a class="sidebar-link" href="#painelImportacao"><span class="nav-icon">⇧</span><span>Importação manual</span></a>
+    </nav>
+    <div class="sidebar-bottom">
+      <span class="sidebar-status-dot"></span>
+      <div><strong>Ambiente da loja</strong><small>PetCamp Nova Odessa</small></div>
+    </div>
+  </aside>
+  <div class="app-main">
 
 <header>
   <div class="brand">
@@ -313,6 +428,7 @@ td{padding:13px 11px;color:#354a40;border-bottom:1px solid #edf2ee;font-size:12p
     </div>
     <div id="statusImportacaoTexto" class="subtitle" aria-live="polite"></div>
   </details>
+  <section id="dashboard" class="dashboard-section">
   <div class="welcome">
     <div>
       <h2>Painel de Validade</h2>
@@ -328,6 +444,7 @@ td{padding:13px 11px;color:#354a40;border-bottom:1px solid #edf2ee;font-size:12p
     <div class="card orange" role="button" tabindex="0" onclick="filtrarPainel(15,this)"><small>Solicitar desconto · 15%</small><div class="number" id="alerta15">0</div></div>
     <div class="card red" role="button" tabindex="0" onclick="filtrarPainel(30,this)"><small>Solicitar desconto · 30%</small><div class="number" id="alerta30">0</div></div>
     <div class="card green" role="button" tabindex="0" onclick="filtrarPainel('ATUALIZADAS',this)"><small>Descontos solicitados</small><div class="number" id="atualizados">0</div></div>
+  </section>
   </section>
   <section class="panel" id="painelProdutosResumo" hidden style="margin-top:-6px;">
     <div class="panel-head"><div><h3 id="resumoTitulo">Produtos</h3><div class="subtitle" id="resumoSubtitulo"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" class="primary" onclick="exportarResumoPainel()">⬇ Exportar lista para separação</button><button type="button" class="outline" onclick="fecharResumoPainel()">Fechar ✕</button></div></div>
@@ -428,7 +545,7 @@ td{padding:13px 11px;color:#354a40;border-bottom:1px solid #edf2ee;font-size:12p
   </section>
 
   <!-- PRODUTOS ACOMPANHADOS: PAINEL RECOLHÍVEL -->
-  <section class="panel produtos-panel">
+  <section class="panel produtos-panel" id="productSection">
     <details class="produtos-recolhivel">
       <summary class="produtos-resumo">
         <span>
@@ -480,6 +597,8 @@ td{padding:13px 11px;color:#354a40;border-bottom:1px solid #edf2ee;font-size:12p
 
   <div class="footer">CheckProdut · Petcamp Sumaré</div>
 </main>
+  </div>
+</div>
 
 <!-- MODAL BANCO DE DADOS DA LOJA -->
 <div class="modal" id="modalBanco">
@@ -2298,6 +2417,26 @@ onAuthStateChanged(auth,async user=>{
   try { await startCloud(user); }
   catch(err) { console.error("Firebase CheckProdut:",err); status.textContent="Falha na conexão com a nuvem"; gate.style.display="flex"; const codigo=err?.code||"sem-codigo"; const detalhe=err?.message||String(err); setMessage("Falha ao conectar ao banco ("+codigo+"): "+detalhe); }
 });
+</script>
+
+
+<script>
+/* Navegação da interface: apenas rolagem e estado visual, sem tocar nos dados. */
+(function(){
+  const links=[...document.querySelectorAll('.sidebar-link[href^="#"]')];
+  function activate(id){
+    links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
+  }
+  links.forEach(a=>a.addEventListener('click',()=>activate(a.getAttribute('href').slice(1))));
+  const targets=['dashboard','cadastro','productSection','painelImportacao'].map(id=>document.getElementById(id)).filter(Boolean);
+  if('IntersectionObserver' in window){
+    const observer=new IntersectionObserver(entries=>{
+      const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+      if(visible)activate(visible.target.id);
+    },{rootMargin:'-18% 0px -65% 0px',threshold:[0,.15,.35]});
+    targets.forEach(el=>observer.observe(el));
+  }
+})();
 </script>
 
 </body>
