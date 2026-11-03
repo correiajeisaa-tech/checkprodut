@@ -1520,10 +1520,16 @@ function descontoSolicitado(p,faixa) {
   return faixa===30 ? !!(p.desconto30Solicitado || (p.etiquetaAtualizada && situacao(p).faixa===30))
                     : !!(p.desconto15Solicitado || (p.etiquetaAtualizada && situacao(p).faixa===15));
 }
-function precisaSolicitarDesconto(p) {
-  const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
-  return dias!==null&&dias>=0&&!p.naoEncontrado&&!p.retiradoVenda&&!!faixa&&!descontoSolicitado(p,faixa);
+function faixaPendente(p) {
+  const dias=diasRestantes(p.validade);
+  if(dias===null||dias<=10||p.naoEncontrado||p.retiradoVenda)return 0;
+  // 15% é etapa obrigatória: continua pendente mesmo quando o produto chega a 90 dias.
+  if(dias<=120&&!p.desconto15Solicitado)return 15;
+  // 30% só fica disponível depois do registro dos 15%, e nunca pode ser solicitado duas vezes.
+  if(dias<=90&&p.desconto15Solicitado&&!p.desconto30Solicitado)return 30;
+  return 0;
 }
+function precisaSolicitarDesconto(p) { return faixaPendente(p)!==0; }
 
 function formatarData(dataStr) {
   const data = interpretarDataValidade(dataStr);
@@ -1610,7 +1616,7 @@ function renderizar() {
   const situacaoFiltro=document.getElementById("filtroSituacao")?.value||"";
   const filtrados=produtos.filter(p=>{
     const matchBusca=[p.barcode,p.descricao,p.setor,p.funcionario,p.funcionarioRetirada,p.funcionarioNaoEncontrado].join(" ").toLowerCase().includes(busca);
-    const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+    const dias=diasRestantes(p.validade),faixa=faixaPendente(p);
     const matchSetor=(!setorFiltro||p.setor===setorFiltro)&&(setorFiltroAtual==="TODOS"||p.setor===setorFiltroAtual);
     const matchFunc=!funcFiltro||[p.funcionario,p.funcionarioTroca,p.funcionarioRetirada,p.funcionarioNaoEncontrado].includes(funcFiltro);
     const matchPainel=filtroPainelAtual==="TODOS"||(filtroPainelAtual==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(faixa===filtroPainelAtual&&precisaSolicitarDesconto(p)));
@@ -1618,8 +1624,8 @@ function renderizar() {
     return matchBusca&&matchSetor&&matchFunc&&matchPainel&&matchSituacao;
   });
   document.getElementById("total").textContent=produtos.length;
-  document.getElementById("alerta15").textContent=produtos.filter(p=>situacao(p).faixa===15&&precisaSolicitarDesconto(p)).length;
-  document.getElementById("alerta30").textContent=produtos.filter(p=>situacao(p).faixa===30&&precisaSolicitarDesconto(p)).length;
+  document.getElementById("alerta15").textContent=produtos.filter(p=>faixaPendente(p)===15).length;
+  document.getElementById("alerta30").textContent=produtos.filter(p=>faixaPendente(p)===30).length;
   document.getElementById("atualizados").textContent=produtos.filter(p=>!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada).length;
   document.getElementById("alertaRetirada").textContent=produtos.filter(p=>{const d=diasRestantes(p.validade);return d!==null&&d<=10&&!p.retiradoVenda&&!p.naoEncontrado;}).length;
   document.querySelectorAll(".cards .card").forEach((c,i)=>c.classList.toggle("active-filter",["RETIRAR",15,30,"ATUALIZADAS"][i]===filtroPainelAtual));
@@ -1627,13 +1633,16 @@ function renderizar() {
   document.getElementById("vazio").style.display=filtrados.length?"none":"block";
   filtrados.sort((a,b)=>(diasRestantes(a.validade)??99999)-(diasRestantes(b.validade)??99999));
   filtrados.forEach(p=>{
-    const dias=diasRestantes(p.validade),faixa=situacao(p).faixa;
+    const dias=diasRestantes(p.validade),faixa=faixaPendente(p);
     const avisoRetirada=dias!==null&&dias<=10&&!p.retiradoVenda&&!p.naoEncontrado;
     let statusTag;
     if(p.naoEncontrado)statusTag='<span class="tag warn">Não localizado · provável venda / local não visível</span>';
     else if(p.retiradoVenda)statusTag='<span class="tag done">Retirado da área de venda</span>';
     else if(avisoRetirada)statusTag=`<span class="tag urgent">RETIRAR DA PRATELEIRA · ${dias<0?"VENCIDO":dias+" dia(s)"}</span>`;
-    else if(faixa&&descontoSolicitado(p,faixa))statusTag=`<span class="tag done">Desconto de ${faixa}% solicitado</span>`;
+    else if(p.desconto30Solicitado)statusTag='<span class="tag done">Desconto de 30% solicitado</span>';
+    else if(p.desconto15Solicitado)statusTag='<span class="tag done">Desconto de 15% solicitado</span>';
+    else if(faixa===15)statusTag='<span class="tag warn">Solicitar desconto de 15%</span>';
+    else if(faixa===30)statusTag='<span class="tag urgent">Solicitar desconto de 30%</span>';
     else statusTag=`<span class="tag ${situacao(p).classe}">${situacao(p).texto}</span>`;
     const descontoBtn=precisaSolicitarDesconto(p)?`<button type="button" class="primary" onclick="marcarDescontoSolicitado(${p.id},${faixa})">Já solicitei desconto ${faixa}%</button>`:"";
     const retiradaBtns=avisoRetirada?`<button type="button" class="danger" onclick="marcarRetirada(${p.id})">Já retirei da prateleira</button><button type="button" class="outline" onclick="marcarNaoEncontrado(${p.id})">Não achei</button>`:"";
@@ -1664,7 +1673,7 @@ function atualizarResumoPainel() {
   const painel=document.getElementById("painelProdutosResumo");if(!painel)return;
   if(!painelResumoAberto){painel.hidden=true;return;}
   const titulos={TODOS:"Todos os produtos cadastrados",15:"Solicitações de desconto · 15%",30:"Solicitações de desconto · 30%",RETIRAR:"Produtos próximos do vencimento · retirar da prateleira",ATUALIZADAS:"Descontos solicitados"};
-  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda&&!p.naoEncontrado):painelResumoTipo==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(situacao(p).faixa===painelResumoTipo&&precisaSolicitarDesconto(p)));
+  const itens=produtos.filter(p=>painelResumoTipo==="TODOS"?true:painelResumoTipo==="RETIRAR"?(diasRestantes(p.validade)!==null&&diasRestantes(p.validade)<=10&&!p.retiradoVenda&&!p.naoEncontrado):painelResumoTipo==="ATUALIZADAS"?(!!p.desconto15Solicitado||!!p.desconto30Solicitado||!!p.etiquetaAtualizada):(faixaPendente(p)===painelResumoTipo));
   document.getElementById("resumoTitulo").textContent=titulos[painelResumoTipo]||"Produtos cadastrados";
   document.getElementById("resumoSubtitulo").textContent=itens.length+" produto(s)";
   document.getElementById("barraRetiradaLote").hidden=painelResumoTipo!=="RETIRAR";
@@ -1794,7 +1803,7 @@ async function marcarRetirada(id) {
     alert("A retirada NÃO foi confirmada na nuvem. O produto continua pendente.\n\n"+(err?.message||err));
   }
 }
-async async function marcarNaoEncontrado(id) {
+async function marcarNaoEncontrado(id) {
   const p=produtos.find(x=>String(x.id)===String(id));if(!p||p.retiradoVenda||p.naoEncontrado)return;
   const resp=prompt("Nome do funcionário que procurou e não encontrou o produto:",p.funcionario||"");if(!resp||!resp.trim())return;
   const anterior={naoEncontrado:p.naoEncontrado,dataNaoEncontrado:p.dataNaoEncontrado,funcionarioNaoEncontrado:p.funcionarioNaoEncontrado};
@@ -1811,11 +1820,24 @@ async async function marcarNaoEncontrado(id) {
   }
 }
 async function marcarDescontoSolicitado(id,faixa) {
-  const p=produtos.find(x=>String(x.id)===String(id));if(!p||situacao(p).faixa!==Number(faixa)||!precisaSolicitarDesconto(p))return;
-  const resp=prompt("Nome do funcionário que solicitou o desconto de "+faixa+"%:",p.funcionario||"");if(!resp||!resp.trim())return;
-  if(Number(faixa)===15){p.desconto15Solicitado=true;p.dataDesconto15Solicitado=new Date().toISOString();}
-  if(Number(faixa)===30){p.desconto30Solicitado=true;p.dataDesconto30Solicitado=new Date().toISOString();}
-  p.funcionarioTroca=resp.trim();await salvar();
+  const p=produtos.find(x=>String(x.id)===String(id));
+  if(!p||faixaPendente(p)!==Number(faixa))return;
+  const resp=prompt("Nome do funcionário que solicitou o desconto de "+faixa+"%:",p.funcionario||"");
+  if(!resp||!resp.trim())return;
+  const anterior={desconto15Solicitado:p.desconto15Solicitado,desconto30Solicitado:p.desconto30Solicitado,dataDesconto15Solicitado:p.dataDesconto15Solicitado,dataDesconto30Solicitado:p.dataDesconto30Solicitado,funcionarioDesconto15:p.funcionarioDesconto15,funcionarioDesconto30:p.funcionarioDesconto30,funcionarioTroca:p.funcionarioTroca};
+  if(Number(faixa)===15){
+    p.desconto15Solicitado=true;p.dataDesconto15Solicitado=new Date().toISOString();p.funcionarioDesconto15=resp.trim();
+  } else if(Number(faixa)===30){
+    if(!p.desconto15Solicitado||p.desconto30Solicitado)return;
+    p.desconto30Solicitado=true;p.dataDesconto30Solicitado=new Date().toISOString();p.funcionarioDesconto30=resp.trim();
+  } else return;
+  p.funcionarioTroca=resp.trim();
+  try { await salvar(); }
+  catch(err) {
+    Object.assign(p,anterior);
+    await salvar(false);
+    alert("Não foi possível confirmar a solicitação na nuvem. O produto continua pendente.\\n\\n"+(err?.message||err));
+  }
 }
 function abrirHistoricoVencimentos() {
   const agora=Date.now(), limite=agora-30*86400000;
