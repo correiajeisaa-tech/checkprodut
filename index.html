@@ -870,14 +870,25 @@ async function gravarImportacao(dados, origem, event) {
   }
   if(!comCodigo) throw new Error("Não encontrei códigos GTIN válidos no arquivo.");
   const chaveCatalogo=x=>[String(x.codigo||"").trim(),String(x.descricao||"").trim().toLowerCase(),String(x.validadeOrigem||"").trim()].join("|");
+  // Soma as linhas do mesmo GTIN + descrição + validade no próprio relatório.
+  const consolidar=(lista,chave)=>{
+    const mapa=new Map();
+    for(const item of lista){
+      const k=chave(item),atual=mapa.get(k);
+      if(atual)atual.quantidade+=lerQuantidade(item.quantidade);
+      else mapa.set(k,{...item,quantidade:lerQuantidade(item.quantidade)});
+    }
+    return [...mapa.values()];
+  };
+  const catalogoConsolidado=consolidar(novosCatalogo,chaveCatalogo);
   const mapaCatalogo=new Map(catalogoBase.map(x=>[chaveCatalogo(x),x]));
   let adicionados=0,repetidos=0,descricoesAtualizadas=0,quantidadesAtualizadas=0;
-  for(const item of novosCatalogo){
+  for(const item of catalogoConsolidado){
     const key=chaveCatalogo(item),existente=mapaCatalogo.get(key);
     if(existente){
       repetidos++;
-      const maior=Math.max(lerQuantidade(existente.quantidade),item.quantidade);
-      if(maior>lerQuantidade(existente.quantidade)){existente.quantidade=maior;quantidadesAtualizadas++;}
+      // Substitui pela quantidade total atual do relatório: reimportar não duplica unidades.
+      if(lerQuantidade(existente.quantidade)!==item.quantidade){existente.quantidade=item.quantidade;quantidadesAtualizadas++;}
       continue;
     }
     const pendente=catalogoBase.find(x=>String(x.codigo||"").trim()===item.codigo&&String(x.validadeOrigem||"")===item.validadeOrigem&&descricaoAusente(x.descricao||"")&&!descricaoAusente(item.descricao));
@@ -895,12 +906,13 @@ async function gravarImportacao(dados, origem, event) {
   catalogoBase.forEach(item=>{if(!item.id)item.id=window.idCatalogo(item);});
   let acompanhamentosNovos=0,quantidadesAcompanhamentoAtualizadas=0;
   const chaveProduto=p=>[codigoLimpo(p.barcode||p.codigo),interpretarDataValidade(p.validade)?.getTime()||"",String(p.descricao||"").trim().toLowerCase()].join("|");
+  const acompanhamentosConsolidados=consolidar(novosAcompanhamentos,chaveProduto);
   const mapaProdutos=new Map(produtos.map(p=>[chaveProduto(p),p]));
-  for(const item of novosAcompanhamentos){
+  for(const item of acompanhamentosConsolidados){
     const key=chaveProduto(item),existente=mapaProdutos.get(key);
     if(existente){
-      const maior=Math.max(lerQuantidade(existente.quantidade),item.quantidade);
-      if(maior>lerQuantidade(existente.quantidade)){existente.quantidade=maior;quantidadesAcompanhamentoAtualizadas++;}
+      // Quantidade do lote no relatório é o valor final; não acumular em reimportações.
+      if(lerQuantidade(existente.quantidade)!==item.quantidade){existente.quantidade=item.quantidade;quantidadesAcompanhamentoAtualizadas++;}
       continue;
     }
     const novo={id:Date.now()+acompanhamentosNovos,barcode:item.barcode,descricao:item.descricao,peso:"",setor:"Outros",quantidade:item.quantidade,validade:item.validade,especie:"Geral",funcionario:"Importação do relatório",etiquetaAtualizada:false,origemImportacao:true};
@@ -918,7 +930,8 @@ async function gravarImportacao(dados, origem, event) {
   }
   renderizar();
   atualizarContadorBanco();renderizarTabelaBanco();atualizarListaFuncionarios();
-  alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nQuantidades maiores atualizadas no catálogo: "+quantidadesAtualizadas+"\nQuantidades maiores atualizadas no acompanhamento: "+quantidadesAcompanhamentoAtualizadas+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
+  alert("Importação concluída ("+origem+")\n\nLinhas com GTIN: "+comCodigo+
+    "\nGrupos consolidados por GTIN/descrição/validade: "+catalogoConsolidado.length+"\nCom descrição: "+comDescricao+"\nNovos itens no catálogo: "+adicionados+"\nDescrições recuperadas: "+descricoesAtualizadas+"\nRepetidos: "+repetidos+"\nQuantidades maiores atualizadas no catálogo: "+quantidadesAtualizadas+"\nQuantidades maiores atualizadas no acompanhamento: "+quantidadesAcompanhamentoAtualizadas+"\nCom validade reconhecida: "+comValidade+"\nNovos itens no acompanhamento: "+acompanhamentosNovos+"\nSem validade: "+semValidade+"\nTotal no catálogo: "+catalogoBase.length+"\nTotal no acompanhamento: "+produtos.length);
   if(event?.target)event.target.value="";
 }
 async function carregarRelatorioLoja(event) {
